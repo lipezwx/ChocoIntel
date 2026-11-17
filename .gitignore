@@ -1,0 +1,12 @@
+# Real company data must never be committed
+data/
+*.xlsx
+!sample_data/*.xlsx
+~$*.xlsx
+
+# Script artefacts
+*.bak
+*.tmp
+__pycache__/
+*.pyc
+.DS_Store

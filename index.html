@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Stock Intelligence — Inventory Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--gold:#ff4d5e;--amber:#e4002b;--ink:#a9a39a;--glass:rgba(255,255,255,.05);--line:rgba(255,255,255,.12)}
+html{scroll-behavior:smooth}
+body{font-family:Inter,system-ui,sans-serif;background:#050403;color:#fff;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0;z-index:60;pointer-events:none;opacity:.07;mix-blend-mode:overlay;background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/></filter><rect width='200' height='200' filter='url(%23n)'/></svg>")}
+.glass{background:rgba(18,10,11,.62);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.14);box-shadow:0 14px 40px rgba(0,0,0,.5);border-radius:8px}
+/* floating nav */
+header{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:50;width:calc(100% - 40px);max-width:1500px;display:flex;justify-content:space-between;align-items:center;pointer-events:none}
+header>*{pointer-events:auto}
+.pill{display:flex;align-items:center;gap:6px;padding:8px 10px 8px 16px;border-radius:10px}
+.pill svg.logo{height:34px;width:34px;margin-right:8px;flex:none}.pill .brand{font:400 22px Anton,Impact,sans-serif;letter-spacing:.06em;margin-right:12px;color:#fff}
+.pill button{background:none;border:0;color:#d8d2c8;font:500 14px Inter;padding:9px 14px;border-radius:5px;cursor:pointer;transition:.25s}
+.pill button:hover{background:rgba(255,255,255,.1);color:#fff}
+.pill button.active{background:rgba(228,0,43,.18);color:var(--gold)}
+.cta{border-radius:6px;padding:14px 26px;color:#fff;font:700 13px Inter;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;border:0;background:#e4002b;box-shadow:0 8px 24px rgba(228,0,43,.4);transition:.3s}
+.cta:hover{background:#fff;color:#e4002b;transform:translateY(-2px)}
+/* hero */
+.hero{position:relative;height:100vh;min-height:640px;display:grid;place-items:center;overflow:hidden}
+.word{position:absolute;left:3vw;right:3vw;top:14vh}
+.word svg{width:100%;height:auto;filter:drop-shadow(0 30px 40px rgba(0,0,0,.6))}
+#gl{position:absolute;inset:0;width:100%;height:100%}
+.tag{position:absolute;bottom:7vh;font:800 clamp(22px,3.4vw,46px)/.95 Inter;letter-spacing:-.04em;text-transform:uppercase}
+.tag.l{left:5vw}.tag.r{right:5vw;text-align:right}
+.float{position:absolute;padding:18px 22px;min-width:170px;animation:bob 6s ease-in-out infinite}
+.float b{display:block;font:800 38px Inter;color:var(--gold);letter-spacing:-.03em}
+.float span{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink)}
+.f1,.f2{border-radius:6px;border-left:3px solid #e4002b}.f1{left:7vw;top:48vh}.f2{right:7vw;top:40vh;animation-delay:-3s}
+@keyframes bob{50%{transform:translateY(-12px)}}
+.scroll{position:absolute;bottom:2.2vh;left:50%;transform:translateX(-50%);font-size:11px;letter-spacing:.3em;color:var(--ink)}
+/* dashboard */
+.container{max-width:1500px;margin:0 auto;padding:40px 24px 80px}
+.eyebrow{font-size:12px;letter-spacing:.28em;text-transform:uppercase;color:var(--amber);margin-bottom:10px}
+.h2{font:400 clamp(40px,6vw,84px)/.95 Anton,Impact,sans-serif;text-transform:uppercase;margin-bottom:12px}
+.sub{color:var(--ink);margin-bottom:36px}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;margin-bottom:24px}
+.kpi{padding:24px;transition:.35s;position:relative;overflow:hidden}
+.kpi::after{content:"";position:absolute;left:0;top:0;height:3px;width:36px;background:#e4002b;transition:width .5s}
+.kpi:hover{transform:translateY(-6px);border-color:rgba(228,0,43,.6)}.kpi:hover::after{width:100%}.kpi-grid{counter-reset:k}.kpi::before{counter-increment:k;content:"0" counter(k);position:absolute;right:16px;top:14px;font:600 11px ui-monospace,monospace;color:#6d6560}.kpi-icon{display:none}
+.kpi-icon{font-size:22px;margin-bottom:14px}
+.kpi-val{font:400 40px Anton,Impact,sans-serif;letter-spacing:.01em;margin-top:10px}
+.kpi-lbl{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink);margin-top:8px}
+.insight-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,480px),1fr));gap:16px}
+.insight-card,.section{padding:30px;margin-bottom:16px}
+.insight-title,.section-title{font:700 20px Inter;margin-bottom:20px;letter-spacing:-.02em}
+.section-title{color:#fff;font:400 30px Anton,Impact,sans-serif;text-transform:uppercase;letter-spacing:.02em;padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:16px}.insight-title{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink)}.insight-title::before{content:"";display:inline-block;width:10px;height:10px;background:#e4002b;margin-right:10px}
+.section-desc{color:var(--ink);font-size:14px;margin-bottom:20px}
+.chart-container{position:relative;height:320px}
+.section{overflow-x:auto}
+.dt{width:100%;border-collapse:collapse;font-size:13px}
+.dt th{padding:12px 16px;text-align:left;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);border-bottom:1px solid rgba(228,0,43,.35);white-space:nowrap}
+.dt td{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.07)}
+.dt tbody tr{transition:.2s}.dt tbody tr:hover{background:rgba(228,0,43,.12)}.dt tbody tr:hover td:first-child{box-shadow:inset 3px 0 #e4002b}
+.badge{display:inline-flex;padding:4px 10px;border-radius:3px;text-transform:uppercase;letter-spacing:.06em;font-size:10px;font-size:11px;font-weight:700}
+.badge.critical{background:rgba(211,47,47,.2);color:#ff8a8a}.badge.low{background:rgba(242,140,40,.2);color:#f5a04a}.badge.adequate{background:rgba(76,175,80,.2);color:#81c784}.badge.overstocked{background:rgba(255,255,255,.1);color:#ccc}
+.page{display:none}.page.active{display:block;animation:in .6s cubic-bezier(.2,.8,.2,1)}
+@keyframes in{from{opacity:0;transform:translateY(24px)}}
+.rv{opacity:0;transform:translateY(30px);transition:.8s cubic-bezier(.2,.8,.2,1)}.rv.on{opacity:1;transform:none}
+.scroll-hint{display:none}
+footer{text-align:center;padding:40px;font-size:12px;color:var(--ink)}
+@media(max-width:800px){.pill button:not(.active){display:none}.float{display:none}.cta{padding:10px 16px}}
+
+.tw{max-height:560px;overflow:auto;border:1px solid var(--line);border-radius:6px;background:rgba(0,0,0,.3)}
+.tools{display:flex;gap:12px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.tools input{flex:1;min-width:200px;max-width:340px;padding:11px 16px;border-radius:5px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:#fff;font:14px Inter;outline:0}
+.tools input:focus{border-color:var(--amber)}.tools small{color:var(--ink)}
+.dt{font-size:14px;border-collapse:separate;border-spacing:0}
+.dt th{position:sticky;top:0;z-index:2;background:#1a0a0d;cursor:pointer;user-select:none;color:#fff;border-bottom:2px solid var(--amber);font-size:12px;padding:14px 16px}
+.dt th:hover{color:var(--gold)}.dt th.asc::after{content:" \25B2"}.dt th.desc::after{content:" \25BC"}
+.dt td{padding:13px 16px}.dt tbody tr:nth-child(even){background:rgba(255,255,255,.035)}
+.dt .num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.dt th.num{text-align:right}
+.dt .code{font-family:ui-monospace,Menlo,monospace;color:var(--gold);white-space:nowrap}
+.dt td.hot{color:#ff6b7a}
+
+.ticker{background:#e4002b;color:#fff;overflow:hidden;white-space:nowrap;padding:14px 0;transform:rotate(-1deg) scale(1.02);margin:-10px 0 30px;position:relative;z-index:5;box-shadow:0 10px 40px rgba(228,0,43,.35)}
+.ticker div{display:inline-block;font:400 26px Anton,Impact,sans-serif;letter-spacing:.06em;animation:tk 28s linear infinite}
+.ticker i{font-style:normal;margin:0 26px;color:#1a0507}
+@keyframes tk{to{transform:translateX(-50%)}}
+.live{display:inline-flex;align-items:center;gap:8px}.live::before{content:"";width:8px;height:8px;border-radius:50%;background:#e4002b;animation:pl 1.4s infinite}
+@keyframes pl{0%{box-shadow:0 0 0 0 rgba(228,0,43,.7)}100%{box-shadow:0 0 0 12px rgba(228,0,43,0)}}
+
+.insight-card{position:relative;overflow:hidden;backdrop-filter:blur(28px) saturate(150%);-webkit-backdrop-filter:blur(28px) saturate(150%);background:linear-gradient(160deg,rgba(228,0,43,.10),rgba(18,10,11,.6) 55%)}
+.insight-card::before{content:"";position:absolute;width:320px;height:320px;right:-110px;bottom:-130px;border-radius:50%;background:radial-gradient(circle,rgba(228,0,43,.5),transparent 68%);filter:blur(50px);animation:drift 9s ease-in-out infinite alternate;pointer-events:none}
+.insight-card:nth-child(even)::before{left:-120px;right:auto;top:-140px;bottom:auto;animation-delay:-4s}
+.insight-card>*{position:relative}
+@keyframes drift{to{transform:translate(-50px,-34px) scale(1.25)}}
+.insight-card:hover{border-color:rgba(228,0,43,.55)}
+.insight-card strong{color:#ff4d5e;font:400 1.35em Anton,Impact,sans-serif;letter-spacing:.02em}
+
+/* ===== V3 : semantic palette + chart/slot components ===== */
+:root{--crit:#ff4d5e;--low:#f5a04a;--ok:#4fcf8f;--over:#6aa8ff;--card:rgba(18,10,11,.62)}
+.kpi::before{content:none!important}
+.kpi small{display:block;margin-top:6px;font-size:12px;color:#7d766d}
+.kpi.ok .kpi-val{color:var(--ok)}.kpi.warn .kpi-val{color:var(--low)}.kpi.bad .kpi-val{color:var(--crit)}
+.insight-grid .wide{grid-column:1/-1}
+.insight-card{margin-bottom:0}
+.insight-title{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.insight-title em{font:500 12px Inter;letter-spacing:0;text-transform:none;font-style:normal;color:#7d766d}
+.card-lead{font-size:15px;line-height:1.45;color:#e9e4dc;margin:-6px 0 18px;max-width:62ch}
+.card-lead b{color:#fff}
+.chart-container.tall{height:340px}
+/* quality distribution */
+.q-wrap{display:grid;grid-template-columns:minmax(180px,230px) 1fr;gap:26px;align-items:center}
+.q-wrap .chart-container{height:230px}
+@media(max-width:640px){.q-wrap{grid-template-columns:1fr}}
+.q-list{display:grid;gap:14px}
+.q-row{display:grid;grid-template-columns:12px 1fr auto;gap:2px 12px;align-items:center}
+.q-row i{width:12px;height:12px;border-radius:3px;grid-row:1/3}
+.q-row b{font-size:14px;font-weight:600}.q-row span{font:400 22px Anton,Impact,sans-serif;letter-spacing:.02em;text-align:right}
+.q-row small{font-size:12px;color:#8f887f;grid-column:2/4}
+.q-bar{grid-column:2/4;height:5px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden}
+.q-bar u{display:block;height:100%;border-radius:3px}
+/* capital at risk */
+.cap{display:grid;gap:16px}
+.cap-row{display:grid;grid-template-columns:1fr auto;gap:4px 16px;align-items:end}
+.cap-row b{font-size:14px;font-weight:600}.cap-row small{color:#8f887f;font-size:12px;grid-column:1}
+.cap-row strong{font:400 34px/1 Anton,Impact,sans-serif;grid-row:1/3;grid-column:2;text-align:right}
+.cap-track{grid-column:1/-1;height:8px;border-radius:4px;background:rgba(255,255,255,.07);overflow:hidden}
+.cap-track u{display:block;height:100%;border-radius:4px}
+.note{font-size:12px;color:#7d766d;line-height:1.5;margin-top:14px;border-left:2px solid rgba(255,255,255,.14);padding-left:12px}
+/* actions */
+.acts{display:grid;gap:12px;list-style:none}
+.acts li{display:grid;grid-template-columns:6px 1fr;gap:14px;padding:12px 14px;background:rgba(255,255,255,.04);border-radius:6px}
+.acts li::before{content:"";border-radius:3px;background:var(--c)}
+.acts b{display:block;font-size:14px;margin-bottom:2px}.acts span{font-size:13px;color:#b9b2a8;line-height:1.45}
+/* transfer */
+.pt{width:100%;border-collapse:separate;border-spacing:0;font-size:14px}
+#planTable{min-width:1320px}
+#planTable td:first-child{min-width:190px}
+#safetyTable{min-width:980px}
+#riskTable{min-width:900px}
+.type-badges{display:flex;gap:4px;flex-wrap:wrap}
+.type-badges .chip{font-size:10px;padding:2px 7px}
+.type-badges .chip::before{width:5px;height:5px}
+.pt th{text-align:left;font-size:12px;font-weight:600;color:#a9a39a;padding:10px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+.pt td{padding:14px;border-bottom:1px solid rgba(255,255,255,.07);vertical-align:middle}
+.pt .n{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}.pt th.n{text-align:right}
+.pt tr:last-child td{border:0}
+.pt .c{font-family:ui-monospace,Menlo,monospace;color:var(--gold)}.pt .d{display:block;font:400 12px Inter;color:#8f887f;margin-top:2px}
+.pt tr.fefo td{padding:0 14px 14px;border-bottom:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.02)}
+.pt tr.fefo .fefo-head{font-size:12px;color:#a9a39a;margin:2px 0 7px}
+.pt tr.fefo .fefo-head b{color:var(--gold)}
+.pt tr.fefo .fefo-list{display:flex;flex-wrap:wrap;gap:6px}
+.pt tr.fefo .fefo-i{font-size:12px;padding:4px 8px;border-radius:8px;background:rgba(255,255,255,.055);color:#cfc8be;white-space:nowrap}
+.pt tr.fefo .fefo-i b{color:#fff;font-weight:600}
+.wave-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:14px}
+.wave-card{padding:16px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.03)}
+.wave-card.paid{border-color:rgba(245,160,74,.45);background:rgba(245,160,74,.06)}
+.wave-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:4px}
+.wave-head b{font-size:16px}
+.wave-meta{font-size:12px;color:#a9a39a;margin-bottom:8px}
+.wave-item{padding:8px 0;border-top:1px solid rgba(255,255,255,.07)}
+.wave-item:first-of-type{border-top:0}
+.wave-item .wi-top{display:flex;justify-content:space-between;gap:10px;font-size:13px}
+.wave-item .wi-top b{color:#fff;font-weight:600}
+.wave-item .wi-sub{font-size:12px;color:#8f887f;margin-top:2px}
+.wave-item .wi-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.wave-item .wi-tags .chip{font-size:10px;padding:2px 7px}
+.wave-item .wi-tags .chip::before{width:5px;height:5px}
+.wave-empty{font-size:13px;color:#8f887f;padding:6px 0}
+.split{display:flex;height:10px;border-radius:5px;overflow:hidden;background:rgba(255,255,255,.07);min-width:160px}
+.split u{display:block;height:100%}.split .a{background:var(--ok)}.split .b{background:var(--low)}
+.split-l{display:flex;justify-content:space-between;font-size:12px;margin-top:5px;color:#b9b2a8;gap:10px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;font-size:12px;font-weight:600;white-space:nowrap}
+.chip::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.chip.ok{background:rgba(79,207,143,.14);color:var(--ok)}.chip.mid{background:rgba(245,160,74,.14);color:var(--low)}.chip.bad{background:rgba(255,77,94,.14);color:var(--crit)}.chip.free{background:rgba(106,168,255,.14);color:var(--over)}
+.tgrid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px;margin-bottom:16px}
+@media(max-width:1000px){.tgrid{grid-template-columns:1fr}}
+.tgrid .section{margin:0}
+.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:#a9a39a;margin-bottom:16px}
+.legend span{display:inline-flex;align-items:center;gap:7px}.legend i{width:16px;height:10px;border-radius:2px;display:inline-block}
+.sw-occ{background:#e9e4dc}.sw-free{background:repeating-linear-gradient(135deg,rgba(79,207,143,.7) 0 3px,transparent 3px 6px);outline:1px solid rgba(79,207,143,.6);outline-offset:-1px}.sw-over{background:var(--crit)}
+.slot{display:grid;grid-template-columns:minmax(120px,170px) 1fr 96px;gap:14px;align-items:center;padding:7px 0}
+.slot-n{font-size:13px;line-height:1.25}.slot-n b{font:600 13px ui-monospace,Menlo,monospace;color:#fff;display:block}.slot-n small{color:#8f887f;font-size:11px}
+.track{position:relative;height:18px;border-radius:4px;background:rgba(255,255,255,.04)}
+.track>*{position:absolute;top:0;height:100%}
+.track .occ{left:0;background:linear-gradient(90deg,#b9b2a8,#e9e4dc);border-radius:4px 0 0 4px}
+.track .fr{background:repeating-linear-gradient(135deg,rgba(79,207,143,.7) 0 3px,transparent 3px 6px);outline:1px solid rgba(79,207,143,.6);outline-offset:-1px}
+.track .ov{background:var(--crit);border-radius:0 4px 4px 0;box-shadow:0 0 14px rgba(255,77,94,.55)}
+.track .cap{width:0;border-left:2px dashed rgba(255,255,255,.55);top:-4px;height:26px;z-index:2}
+.slot-r{text-align:right;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
+.slot-r.ok{color:var(--ok)}.slot-r.bad{color:var(--crit)}.slot-r.mu{color:#8f887f}
+.rules{display:grid;gap:14px;list-style:none;counter-reset:r;margin-bottom:18px}
+.rules li{counter-increment:r;display:grid;grid-template-columns:26px 1fr;gap:12px;font-size:13px;line-height:1.5;color:#b9b2a8}
+.rules li::before{content:counter(r);width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 12px Inter;background:rgba(255,255,255,.1);color:#fff}
+.rules b{color:#fff}
+.pool-total{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);margin-top:10px;padding-top:14px;font-size:13px;color:#b9b2a8}
+.pool-total strong{font:400 28px Anton,Impact,sans-serif;color:#fff}
+.sec-sub{font-size:13px;color:#a9a39a;margin:20px 0 6px;font-weight:600}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <nav class="pill glass">
+    <svg class='logo' viewBox='0 0 40 40' aria-hidden='true'><rect width='40' height='40' rx='8' fill='#e4002b'/><rect x='8' y='22' width='6' height='10' rx='1.5' fill='#fff'/><rect x='17' y='14' width='6' height='18' rx='1.5' fill='#fff'/><rect x='26' y='8' width='6' height='24' rx='1.5' fill='#fff'/></svg><span class='brand'>STOCKINTEL</span>
+    <button class="active" onclick="show('overview',this)">Overview</button>
+    <button onclick="show('saturation',this)">Stock Health</button>
+    <button onclick="show('availability',this)">Availability</button>
+    <button onclick="show('demand',this)">Demand</button>
+    <button onclick="show('transfer',this)">Transfer</button>
+    <button onclick="show('slowmovers',this)">Slow Movers</button>
+  </nav>
+  <button class="cta" onclick="document.getElementById('dash').scrollIntoView()">Open Dashboard</button>
+</header>
+
+<section class="hero">
+  <div class="word"><svg viewBox="0 0 1000 330" aria-label="StockIntel"><defs>
+    <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a3a3e"/><stop offset=".28" stop-color="#b9b9c0"/><stop offset=".38" stop-color="#ffffff"/><stop offset=".47" stop-color="#9c1228"/><stop offset=".72" stop-color="#d6d6da"/><stop offset="1" stop-color="#1b1b1e"/></linearGradient></defs>
+    <text x="500" y="310" text-anchor="middle" font-family="Anton,Impact,sans-serif" font-size="370" textLength="970" lengthAdjust="spacingAndGlyphs" fill="url(#metal)">STOCKINTEL</text></svg></div>
+  <canvas id="gl"></canvas>
+  <div class="float glass f1"><b>44%</b><span>Availability score</span></div>
+  <div class="float glass f2"><b>3</b><span>Critical items</span></div>
+  <div class="tag l">One view.<br>More control<br>of stock.</div>
+  <div class="tag r">Less waste.<br>More ways<br>to deliver.</div>
+  <div class="scroll">SCROLL</div>
+</section>
+
+<div class="ticker"><div><span>STOCK INTELLIGENCE</span><i>&#9632;</i><span>106 ACTIVE MATERIALS</span><i>&#9632;</i><span>5.17M KG IN STOCK</span><i>&#9632;</i><span>3 CRITICAL ITEMS</span><i>&#9632;</i><span>3,314 KG TO TRANSFER</span><i>&#9632;</i><span>STOCK INTELLIGENCE</span><i>&#9632;</i><span>106 ACTIVE MATERIALS</span><i>&#9632;</i><span>5.17M KG IN STOCK</span><i>&#9632;</i><span>3 CRITICAL ITEMS</span><i>&#9632;</i><span>3,314 KG TO TRANSFER</span><i>&#9632;</i><span>STOCK INTELLIGENCE</span><i>&#9632;</i><span>106 ACTIVE MATERIALS</span><i>&#9632;</i><span>5.17M KG IN STOCK</span><i>&#9632;</i><span>3 CRITICAL ITEMS</span><i>&#9632;</i><span>3,314 KG TO TRANSFER</span><i>&#9632;</i><span>STOCK INTELLIGENCE</span><i>&#9632;</i><span>106 ACTIVE MATERIALS</span><i>&#9632;</i><span>5.17M KG IN STOCK</span><i>&#9632;</i><span>3 CRITICAL ITEMS</span><i>&#9632;</i><span>3,314 KG TO TRANSFER</span><i>&#9632;</i></div></div>
+<div class="container" id="dash">
+
+<!-- OVERVIEW -->
+<div class="page active" id="page-overview">
+  <div class="eyebrow live">Live &middot; 17 November 2026</div><h2 class="h2">Inventory Intelligence</h2><p class="sub">Quality, capital and warehouse positions in one view</p>
+
+  <div class="kpi-grid">
+    <div class="kpi glass rv">
+      <div class="kpi-icon">📦</div>
+      <div class="kpi-val">106</div>
+      <div class="kpi-lbl">Active Materials</div>
+    </div>
+    <div class="kpi glass rv">
+      <div class="kpi-icon">⚖️</div>
+      <div class="kpi-val">5,173,477</div>
+      <div class="kpi-lbl">Total Stock (kg)</div>
+    </div>
+    <div class="kpi glass rv">
+      <div class="kpi-icon">💰</div>
+      <div class="kpi-val">$32,499,495</div>
+      <div class="kpi-lbl">Stock Value</div>
+    </div>
+    <div class="kpi glass rv">
+      <div class="kpi-icon">✓</div>
+      <div class="kpi-val">44%</div>
+      <div class="kpi-lbl">Availability Score</div>
+    </div>
+    <div class="kpi glass rv">
+      <div class="kpi-icon">🔴</div>
+      <div class="kpi-val">3</div>
+      <div class="kpi-lbl">Critical Items</div>
+    </div>
+    <div class="kpi glass rv">
+      <div class="kpi-icon">🔵</div>
+      <div class="kpi-val">50</div>
+      <div class="kpi-lbl">Overstocked</div>
+    </div>
+    <div class="kpi glass rv">
+      <div class="kpi-icon">🚚</div>
+      <div class="kpi-val">3,314</div>
+      <div class="kpi-lbl">3d Transfer (kg)</div>
+    </div>
+    <div class="kpi glass rv"><div class="kpi-val">$6.28</div><div class="kpi-lbl">Average value per kg</div></div>
+    <div class="kpi glass rv warn"><div class="kpi-val">64.8%</div><div class="kpi-lbl">Dedicated position saturation</div></div>
+    <div class="kpi glass rv"><div class="kpi-val">51.4%</div><div class="kpi-lbl">Shared position saturation</div></div>
+  </div>
+
+  <div class="insight-grid">
+    <div class="insight-card glass rv">
+      <div class="insight-title">Stock quality <em id="qSub"></em></div>
+      <p class="card-lead" id="qLead"></p>
+      <div class="q-wrap">
+        <div class="chart-container"><canvas id="chartSaturation"></canvas></div>
+        <div class="q-list" id="qList"></div>
+      </div>
+    </div>
+
+    <div class="insight-card glass rv">
+      <div class="insight-title">Capital at risk <em id="capTag"></em></div>
+      <p class="card-lead" id="capLead"></p>
+      <div class="cap" id="capRows"></div>
+      <p class="note" id="capNote"></p>
+    </div>
+
+    <div class="insight-card glass rv wide">
+      <div class="insight-title">Where the stock sits <em id="topSub"></em></div>
+      <div class="chart-container tall"><canvas id="chartTopStock"></canvas></div>
+    </div>
+
+    <div class="insight-card glass rv wide" id="trendCard">
+      <div class="insight-title">Warehouse saturation over time <em id="trendSub"></em></div>
+      <p class="card-lead" id="trendLead"></p>
+      <div class="chart-container tall"><canvas id="chartTrend"></canvas></div>
+    </div>
+
+    <div class="insight-card glass rv">
+      <div class="insight-title">Demand concentration <em id="demSub"></em></div>
+      <div class="chart-container tall"><canvas id="chartTopConsumption"></canvas></div>
+    </div>
+
+    <div class="insight-card glass rv">
+      <div class="insight-title">What to do now</div>
+      <ul class="acts" id="acts"></ul>
+    </div>
+  </div>
+
+  <div class="scroll-hint">↓ Scroll down to explore detailed views ↓</div>
+</div>
+
+<!-- STOCK HEALTH -->
+<div class="page" id="page-saturation">
+  <div class="section glass rv">
+    <div class="section-title">Critical Shortages</div>
+    <p class="section-desc">Materials with less than 1 week of stock. Immediate action required.</p>
+    <table class="dt"><thead><tr><th>Material Code</th><th>Description</th><th>Stock (kg)</th><th>Weeks Available</th></tr></thead><tbody><tr><td>70011538</td><td>Film Shrink Dark Block 2.1 kg</td><td>748</td><td>0.4</td></tr><tr><td>2062</td><td>Stevia Extract</td><td>1,190</td><td>0.4</td></tr><tr><td>70010191</td><td>Film Barrier Dark Chips 2.5 kg</td><td>300</td><td>0.7</td></tr></tbody></table>
+  </div>
+
+  <div class="section glass rv">
+    <div class="section-title">Overstocked Materials</div>
+    <p class="section-desc">Materials with more than 12 weeks of stock. Opportunity to reduce holding costs.</p>
+    <table class="dt"><thead><tr><th>material</th><th>description</th><th>total_stock</th><th>weeks_of_stock</th></tr></thead><tbody><tr><td>1722</td><td>Hazelnut Paste</td><td>81,251</td><td>121</td></tr><tr><td>80010096</td><td>Carton RSC 15 x 11 x 7</td><td>69,959</td><td>111</td></tr><tr><td>70011723</td><td>Film Shrink Milk Block 2.1 kg</td><td>105,588</td><td>78</td></tr><tr><td>80010464</td><td>Carton Tray 6-pack</td><td>138,720</td><td>75</td></tr><tr><td>1834</td><td>Sea Salt Fine</td><td>24,618</td><td>72</td></tr><tr><td>90010342</td><td>Tape Carton Clear</td><td>205,289</td><td>62</td></tr><tr><td>1872</td><td>Palm Oil Fractionated</td><td>18,061</td><td>56</td></tr><tr><td>2247</td><td>Strawberry Pieces Dried</td><td>33,596</td><td>55</td></tr><tr><td>2084</td><td>Caramel Powder</td><td>80,106</td><td>54</td></tr><tr><td>90010207</td><td>Corner Board 50 mm</td><td>162,890</td><td>53</td></tr><tr><td>2499</td><td>Maltodextrin</td><td>56,897</td><td>53</td></tr><tr><td>2361</td><td>Flavour Caramel</td><td>56,097</td><td>51</td></tr><tr><td>90010114</td><td>Tote Bag Liner</td><td>64,221</td><td>48</td></tr><tr><td>80010377</td><td>Carton Display 24-pack</td><td>67,814</td><td>46</td></tr><tr><td>70010676</td><td>Film Barrier White Bar 1.0 kg</td><td>35,368</td><td>44</td></tr><tr><td>70011737</td><td>Film Shrink Milk Chips 2.5 kg</td><td>17,756</td><td>43</td></tr><tr><td>70011827</td><td>Film Shrink White Bar 1.0 kg</td><td>17,896</td><td>42</td></tr><tr><td>2526</td><td>Cocoa Nibs Roasted</td><td>1,153,139</td><td>42</td></tr><tr><td>2630</td><td>Lactose Powder</td><td>788,602</td><td>39</td></tr><tr><td>2411</td><td>Colour Beetroot Red</td><td>128,290</td><td>38</td></tr><tr><td>1180</td><td>Brown Cane Sugar</td><td>16,082</td><td>37</td></tr><tr><td>70010536</td><td>Film Barrier White Block 2.1 kg</td><td>21,894</td><td>36</td></tr><tr><td>90010177</td><td>Stretch Wrap Clear</td><td>7,388</td><td>35</td></tr><tr><td>2952</td><td>Cardamom Ground</td><td>59,879</td><td>33</td></tr><tr><td>2260</td><td>Raspberry Pieces Dried</td><td>180,283</td><td>33</td></tr><tr><td>2027</td><td>Inulin Powder</td><td>89,003</td><td>27</td></tr><tr><td>70010600</td><td>Film Barrier White Chips 2.5 kg</td><td>74,550</td><td>26</td></tr><tr><td>2659</td><td>Butter Oil Anhydrous</td><td>16,238</td><td>26</td></tr><tr><td>80010539</td><td>Carton Shipper 40 x 30 x 25</td><td>45,587</td><td>24</td></tr><tr><td>70010466</td><td>Film Barrier Milk Bar 1.0 kg</td><td>37,172</td><td>24</td></tr></tbody></table>
+  </div>
+</div>
+
+<!-- AVAILABILITY -->
+<div class="page" id="page-availability">
+  <div class="section glass rv">
+    <div class="section-title">Highest Availability Materials</div>
+    <p class="section-desc">Top performers with optimal stock levels.</p>
+    <table class="dt"><thead><tr><th>material</th><th>description</th><th>total_stock</th><th>availability_score</th></tr></thead><tbody><tr><td>70011750</td><td>Film Shrink Milk Bar 1.0 kg</td><td>102,963</td><td>95</td></tr><tr><td>2302</td><td>Flavour Vanilla Natural</td><td>11,149</td><td>95</td></tr><tr><td>70011356</td><td>Film Laminate Milk Chips 2.5 kg</td><td>7,926</td><td>90</td></tr><tr><td>2188</td><td>Wafer Crumbs</td><td>9,733</td><td>89</td></tr><tr><td>80010306</td><td>Carton Display 12-pack</td><td>2,180</td><td>86</td></tr><tr><td>2546</td><td>Pistachio Paste</td><td>22,086</td><td>85</td></tr><tr><td>1114</td><td>Refined Sugar Fine</td><td>25,789</td><td>84</td></tr><tr><td>70011429</td><td>Film Laminate White Block 2.1 kg</td><td>10,689</td><td>84</td></tr><tr><td>2748</td><td>Yoghurt Powder</td><td>33,883</td><td>83</td></tr><tr><td>70010685</td><td>Film Mono PE Dark Block 2.1 kg</td><td>15,811</td><td>82</td></tr><tr><td>70010253</td><td>Film Barrier Dark Bar 1.0 kg</td><td>8,950</td><td>82</td></tr><tr><td>70010917</td><td>Film Mono PE Milk Chips 2.5 kg</td><td>3,844</td><td>78</td></tr><tr><td>2992</td><td>Sesame Seeds Toasted</td><td>5,283</td><td>77</td></tr><tr><td>1467</td><td>Cocoa Liquor Block</td><td>12,940</td><td>77</td></tr><tr><td>2091</td><td>Malt Extract Dry</td><td>21,798</td><td>76</td></tr><tr><td>70011422</td><td>Film Laminate Milk Bar 1.0 kg</td><td>26,362</td><td>74</td></tr><tr><td>1280</td><td>Sweet Whey Powder</td><td>2,654</td><td>74</td></tr><tr><td>1346</td><td>Cocoa Butter Deodorized</td><td>23,807</td><td>74</td></tr><tr><td>1983</td><td>Glucose Syrup 42DE</td><td>2,733</td><td>74</td></tr><tr><td>2841</td><td>Espresso Powder</td><td>66,612</td><td>73</td></tr><tr><td>70011444</td><td>Film Laminate White Chips 2.5 kg</td><td>7,771</td><td>73</td></tr><tr><td>2802</td><td>Matcha Powder</td><td>14,670</td><td>71</td></tr><tr><td>70011147</td><td>Film Laminate Dark Chips 2.5 kg</td><td>15,261</td><td>71</td></tr><tr><td>80010205</td><td>Carton RSC 20 x 14 x 9</td><td>8,896</td><td>69</td></tr><tr><td>1669</td><td>Polyglycerol Emulsifier</td><td>13,157</td><td>68</td></tr><tr><td>90010028</td><td>Label Roll Thermal 100x150</td><td>11,322</td><td>66</td></tr><tr><td>2137</td><td>Coconut Milk Powder</td><td>15,498</td><td>64</td></tr><tr><td>1219</td><td>Whole Milk Powder</td><td>6,977</td><td>64</td></tr><tr><td>1301</td><td>Cocoa Butter Natural</td><td>37,284</td><td>63</td></tr><tr><td>70010773</td><td>Film Mono PE Dark Chips 2.5 kg</td><td>7,609</td><td>60</td></tr><tr><td>70011805</td><td>Film Shrink White Chips 2.5 kg</td><td>13,573</td><td>58</td></tr><tr><td>70010387</td><td>Film Barrier Milk Chips 2.5 kg</td><td>28,011</td><td>54</td></tr><tr><td>70011668</td><td>Film Shrink Dark Bar 1.0 kg</td><td>6,196</td><td>54</td></tr><tr><td>2717</td><td>Cream Powder</td><td>87,125</td><td>53</td></tr><tr><td>70011602</td><td>Film Shrink Dark Chips 2.5 kg</td><td>17,209</td><td>51</td></tr><tr><td>2295</td><td>Orange Peel Candied</td><td>8,189</td><td>51</td></tr><tr><td>80010539</td><td>Carton Shipper 40 x 30 x 25</td><td>45,587</td><td>50</td></tr><tr><td>70010466</td><td>Film Barrier Milk Bar 1.0 kg</td><td>37,172</td><td>50</td></tr><tr><td>3161</td><td>Baobab Powder</td><td>166,360</td><td>49</td></tr><tr><td>2149</td><td>Oat Flour Toasted</td><td>105,471</td><td>48</td></tr><tr><td>1567</td><td>Sunflower Lecithin</td><td>17,667</td><td>48</td></tr><tr><td>2980</td><td>Chilli Flakes</td><td>4,697</td><td>48</td></tr><tr><td>2578</td><td>Peanut Paste</td><td>69,270</td><td>47</td></tr><tr><td>3075</td><td>Pumpkin Seeds</td><td>28,901</td><td>47</td></tr><tr><td>2659</td><td>Butter Oil Anhydrous</td><td>16,238</td><td>47</td></tr><tr><td>80010278</td><td>Carton RSC 30 x 20 x 12</td><td>51,124</td><td>46</td></tr><tr><td>2449</td><td>Citric Acid Anhydrous</td><td>4,925</td><td>46</td></tr><tr><td>90010243</td><td>Pallet Cover Top</td><td>6,470</td><td>46</td></tr><tr><td>70010600</td><td>Film Barrier White Chips 2.5 kg</td><td>74,550</td><td>46</td></tr><tr><td>2163</td><td>Rice Crisps</td><td>14,714</td><td>44</td></tr></tbody></table>
+  </div>
+</div>
+
+<!-- DEMAND -->
+<div class="page" id="page-demand">
+  <div class="section glass rv">
+    <div class="section-title">Most Consumed Materials</div>
+    <p class="section-desc">Your A-class materials — prioritize availability for these.</p>
+    <table class="dt"><thead><tr><th>material</th><th>total_consumption</th></tr></thead><tbody><tr><td>2526</td><td>346,628</td></tr><tr><td>3161</td><td>328,334</td></tr><tr><td>2630</td><td>237,194</td></tr><tr><td>2149</td><td>220,251</td></tr><tr><td>2578</td><td>124,640</td></tr><tr><td>70011750</td><td>108,098</td></tr><tr><td>80010278</td><td>106,434</td></tr><tr><td>1927</td><td>91,612</td></tr><tr><td>2260</td><td>64,581</td></tr><tr><td>3075</td><td>56,671</td></tr></tbody></table>
+  </div>
+</div>
+
+<!-- TRANSFER -->
+<div class="page" id="page-transfer">
+  <div class="eyebrow live">Warehouse positions &middot; 17 November 2026</div>
+  <h2 class="h2" style="font-size:clamp(34px,4.4vw,60px)">Transfer plan</h2>
+  <p class="sub">3-day demand first, then safety stock, then the best dedicated strategic fill.</p>
+
+  <div class="kpi-grid" id="trKpis"></div>
+
+  <div class="section glass rv">
+    <div class="section-title">3-day requirement, safety and strategic fill</div>
+    <p class="section-desc">Kg per pallet = DC stock &divide; occupied dedicated positions (default 1,000 kg if none). Priority: 3-day demand &rarr; named safety stock &rarr; dedicated strategic fill. Two free daily transfers (morning and afternoon, 24 positions each); above 48 pallets a paid extra trip adds 28 positions. Sources: 3001 = North Hub, 3002 = East Hub. Batches are picked FEFO.</p>
+    <div style="overflow-x:auto"><table class="pt" id="planTable"></table></div>
+    <p class="note" id="planNote"></p>
+  </div>
+
+  <div class="section glass rv">
+    <div class="section-title">Ready-to-go transfer</div>
+    <p class="section-desc">Pallets are loaded by wave. The two daily trips are free; only pallets above 48 positions need a paid extra trip.</p>
+    <div class="wave-grid" id="wavePlan"></div>
+  </div>
+
+  <div class="section glass rv">
+    <div class="section-title">Safety stock</div>
+    <p class="section-desc">Named materials are topped up to their safety pallet target, even when 3-day demand is already covered. Target = 3-day demand + safety pallets, so the buffer remains after consumption.</p>
+    <div style="overflow-x:auto"><table class="pt" id="safetyTable"></table></div>
+  </div>
+
+  <div class="section glass rv">
+    <div class="section-title">Rupture risk</div>
+    <p class="section-desc">Materials that cannot be fully covered from the hubs. These need a source decision, not another pallet. Stock at other locations (e.g. 3009) is reported here, not silently mixed into the daily transfer.</p>
+    <div style="overflow-x:auto"><table class="pt" id="riskTable"></table></div>
+  </div>
+
+  <div class="tgrid">
+    <div class="section glass rv">
+      <div class="section-title">Dedicated positions</div>
+      <div class="legend"><span><i class="sw-occ"></i>Occupied</span><span><i class="sw-free"></i>Open</span><span><i class="sw-over"></i>Overflow</span></div>
+      <div id="slotMap"></div>
+      <p class="note" id="blockedNote"></p><p class="note">Dashed line = 100% of own capacity.</p>
+    </div>
+    <div class="section glass rv">
+      <div class="section-title">How positions are filled</div>
+      <ul class="rules">
+        <li><span><b>Dedicated first.</b> Open positions displace no other material.</span></li>
+        <li><span><b>Shared for the rest.</b> Every shared position used reduces room for others.</span></li>
+        <li><span><b>Reclaim overflow.</b> Move it back once dedicated positions free up.</span></li>
+      </ul>
+      <div class="sec-sub">Shared positions</div>
+      <div id="poolMap"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SLOW MOVERS -->
+<div class="page" id="page-slowmovers">
+  <div class="section glass rv">
+    <div class="section-title">Slow Moving Inventory</div>
+    <p class="section-desc">Materials idle > 60 days in the DC. Consider redistribution.</p>
+    <table class="dt"><thead><tr><th>material</th><th>description</th><th>dc_stock</th><th>avg_days_idle</th></tr></thead><tbody><tr><td>70010330</td><td>Film Barrier Milk Block 2.1 kg</td><td>1,604</td><td>259</td></tr><tr><td>3075</td><td>Pumpkin Seeds</td><td>22,759</td><td>249</td></tr><tr><td>70011827</td><td>Film Shrink White Bar 1.0 kg</td><td>14,279</td><td>246</td></tr><tr><td>3161</td><td>Baobab Powder</td><td>142,938</td><td>244</td></tr><tr><td>2137</td><td>Coconut Milk Powder</td><td>13,004</td><td>244</td></tr><tr><td>70010600</td><td>Film Barrier White Chips 2.5 kg</td><td>29,988</td><td>238</td></tr><tr><td>2247</td><td>Strawberry Pieces Dried</td><td>12,265</td><td>235</td></tr><tr><td>2888</td><td>Ginger Pieces Candied</td><td>6,502</td><td>235</td></tr><tr><td>1346</td><td>Cocoa Butter Deodorized</td><td>14,454</td><td>234</td></tr><tr><td>70011110</td><td>Film Laminate Dark Block 2.1 kg</td><td>2,197</td><td>232</td></tr></tbody></table>
+  </div>
+</div>
+
+</div>
+
+<footer>
+  Stock Intelligence  •  Open-source demo with fictional data  •  17 November 2026
+</footer>
+
+<script>
+function show(id,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if(btn)btn.classList.add('active');
+  document.getElementById('dash').scrollIntoView({behavior:'smooth'});
+}
+
+Chart.defaults.color='#a9a39a';
+Chart.defaults.font.family="Inter,system-ui,sans-serif";
+Object.assign(Chart.defaults.animation,{duration:1500,easing:'easeOutQuart'});
+const RED='#e4002b',tip={backgroundColor:'rgba(18,10,11,.92)',borderColor:'#e4002b',borderWidth:1,titleColor:'#ff4d5e',bodyColor:'#fff',padding:12,cornerRadius:2,displayColors:false,titleFont:{family:'ui-monospace,monospace'}};
+const fmt=v=>v>=1e6?(v/1e6).toFixed(2)+'M':v>=1e3?Math.round(v/1e3)+'k':v;
+const glow={id:'glow',beforeDatasetsDraw(c){c.ctx.save();c.ctx.shadowColor='rgba(228,0,43,.75)';c.ctx.shadowBlur=18},afterDatasetsDraw(c){c.ctx.restore()}};
+const vlabel={id:'vlabel',afterDatasetsDraw(c){const x=c.ctx;x.save();x.fillStyle='#fff';x.font='600 11px Inter';x.textBaseline='middle';
+ c.getDatasetMeta(0).data.forEach((b,i)=>x.fillText(fmt(c.data.datasets[0].data[i]),b.x+8,b.y));x.restore()}};
+const center={id:'center',afterDraw(c){const m=c.getDatasetMeta(0).data[0];if(!m)return;const x=c.ctx,tot=c.data.datasets[0].data.reduce((a,b)=>a+b,0);x.save();x.textAlign='center';x.fillStyle='#fff';x.font='400 54px Anton,Impact,sans-serif';x.fillText(tot,m.x,m.y+10);x.fillStyle='#a9a39a';x.font='600 10px Inter';x.fillText('MATERIALS',m.x,m.y+32);x.restore()}};
+function barChart(id,labels,data,label){const cv=document.getElementById(id),g=cv.getContext('2d').createLinearGradient(0,0,cv.clientWidth||500,0);g.addColorStop(0,'rgba(228,0,43,.15)');g.addColorStop(1,'#ff2a48');
+ new Chart(cv,{type:'bar',data:{labels,datasets:[{label,data,backgroundColor:g,borderRadius:2,barPercentage:.68,hoverBackgroundColor:'#ff6b7a'}]},plugins:[glow,vlabel],
+ options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:52}},animation:{delay:c=>c.dataIndex*90},
+ plugins:{legend:{display:false},tooltip:{...tip,callbacks:{label:c=>c.parsed.x.toLocaleString('en-US')+' kg'}}},
+ scales:{x:{grid:{color:'rgba(255,255,255,.06)',borderDash:[3,4]},border:{display:false},ticks:{callback:fmt}},y:{grid:{display:false},border:{display:false},ticks:{color:'#fff',font:{family:'ui-monospace,Menlo,monospace',size:11}}}}}})}
+const lazy=(id,fn)=>new IntersectionObserver((e,o)=>{if(e[0].isIntersecting){o.disconnect();fn()}},{threshold:.25}).observe(document.getElementById(id));
+</script>
+
+<script>
+const io=new IntersectionObserver(e=>e.forEach(x=>x.isIntersecting&&x.target.classList.add('on')),{threshold:.08});
+document.querySelectorAll('.rv').forEach(n=>io.observe(n));
+const _show=show;show=function(i,b){_show(i,b);setTimeout(()=>document.querySelectorAll('.page.active .rv').forEach(n=>n.classList.add('on')),50)};
+(function(){
+const cv=document.getElementById('gl'),host=cv.parentElement;
+const R=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true});
+R.setPixelRatio(Math.min(devicePixelRatio,2));R.toneMapping=THREE.ACESFilmicToneMapping;R.toneMappingExposure=1.05;
+const S=new THREE.Scene(),C=new THREE.PerspectiveCamera(32,1,.1,100);C.position.set(0,0,12);
+// studio environment for reflections
+const env=new THREE.Scene();
+[[0xfff1d0,0,6,0,12,2],[0xffffff,-8,0,0,2,10],[0xffb15a,8,-2,2,2,8],[0x6a4a2a,0,-6,0,14,2]].forEach(([c,x,y,z,w,h])=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({color:c,side:2}));m.position.set(x,y,z);m.lookAt(0,0,0);env.add(m)});
+const pm=new THREE.PMREMGenerator(R);S.environment=pm.fromScene(env,.04).texture;
+S.add(new THREE.AmbientLight(0xffffff,.3));
+const k=new THREE.DirectionalLight(0xffe2b0,2.2);k.position.set(4,6,6);S.add(k);
+function rr(w,h,r){const s=new THREE.Shape(),x=-w/2,y=-h/2;s.moveTo(x+r,y);s.lineTo(x+w-r,y);s.quadraticCurveTo(x+w,y,x+w,y+r);s.lineTo(x+w,y+h-r);s.quadraticCurveTo(x+w,y+h,x+w-r,y+h);s.lineTo(x+r,y+h);s.quadraticCurveTo(x,y+h,x,y+h-r);s.lineTo(x,y+r);s.quadraticCurveTo(x,y,x+r,y);return s}
+const ex=(w,h,r,d,b)=>new THREE.ExtrudeGeometry(rr(w,h,r),{depth:d,bevelEnabled:true,bevelSize:b,bevelThickness:b,bevelSegments:6,curveSegments:10});
+const choc=new THREE.MeshPhysicalMaterial({color:0x160803,roughness:.3,metalness:.08,clearcoat:1,clearcoatRoughness:.08,envMapIntensity:1.1});
+const red=new THREE.MeshPhysicalMaterial({color:0xe4002b,roughness:.25,metalness:.6,clearcoat:1});
+const bar=new THREE.Group();
+bar.add(new THREE.Mesh(ex(3.5,4.7,.25,.3,.06),choc));
+for(let i=0;i<3;i++)for(let j=0;j<4;j++){if(i==2&&j==3)continue;const m=new THREE.Mesh(ex(.88,.88,.14,.22,.07),choc);m.position.set((i-1)*1.12,(j-1.5)*1.12,.38);bar.add(m)}
+const chip=new THREE.Mesh(ex(.88,.88,.14,.22,.07),choc);chip.position.set(2.4,2.9,1.1);chip.rotation.set(.6,-.5,.5);bar.add(chip);
+const band=new THREE.Mesh(new THREE.BoxGeometry(.32,4.8,.12),red);band.position.set(-1.78,0,.1);bar.add(band);
+const logo=new THREE.Mesh(new THREE.CylinderGeometry(.3,.3,.06,48),red);logo.rotation.x=Math.PI/2;logo.position.set(1.12,-1.7,.62);bar.add(logo);
+bar.position.z=-.2;
+const ringMat=new THREE.MeshStandardMaterial({color:0xe4002b,metalness:1,roughness:.18});
+const ring=new THREE.Mesh(new THREE.TorusGeometry(3.5,.04,16,200),ringMat);
+const ring2=new THREE.Mesh(new THREE.TorusGeometry(3.9,.02,16,200),ringMat);ring2.rotation.x=1.2;
+function bumpTex(){const c=document.createElement('canvas');c.width=c.height=256;const x=c.getContext('2d');x.fillStyle='#808080';x.fillRect(0,0,256,256);
+for(let i=0;i<1600;i++){x.strokeStyle='rgba('+(Math.random()>.5?'255,255,255':'0,0,0')+','+(.05+Math.random()*.2)+')';x.lineWidth=.5+Math.random()*1.6;x.beginPath();const a=Math.random()*256,b=Math.random()*256,l=4+Math.random()*26;x.moveTo(a,b);x.lineTo(a+l,b+(Math.random()-.5)*5);x.stroke()}
+const tx=new THREE.CanvasTexture(c);tx.wrapS=tx.wrapT=THREE.RepeatWrapping;tx.repeat.set(2,2);return tx}
+function beanGeo(){const g=new THREE.SphereGeometry(.26,64,44),pa=g.attributes.position,v=new THREE.Vector3();
+for(let i=0;i<pa.count;i++){v.fromBufferAttribute(pa,i);let x=v.x*1.45,y=v.y*.95,z=v.z*.7;const tp=1-.38*Math.pow(x/.377,2);y*=tp;z*=tp;
+if(z>0)z-=.055*Math.exp(-(y*y)/.0022)*tp;const n=Math.sin(x*26+y*7)*Math.sin(y*21)*.005+Math.sin(z*34+x*9)*.003;pa.setXYZ(i,x+n,y+n,z+n)}
+g.computeVertexNormals();return g}
+const beanMat=new THREE.MeshPhysicalMaterial({color:0x4b2312,roughness:.5,bumpMap:bumpTex(),bumpScale:2.2,clearcoat:.35,clearcoatRoughness:.4});
+const bg=beanGeo(),beans=new THREE.Group();
+for(let i=0;i<14;i++){const bn=new THREE.Mesh(bg,beanMat),a=i/14*6.283+Math.random()*.3,s=1+Math.random()*.7;bn.scale.setScalar(s);bn.position.set(Math.cos(a)*(4.4+Math.random()*.8),(Math.random()-.5)*4.2,Math.sin(a)*(2.2+Math.random()*.8));bn.rotation.set(Math.random()*6,Math.random()*6,Math.random()*6);beans.add(bn)}
+const rig=new THREE.Group();rig.add(bar,ring,ring2,beans);S.add(rig);const gold=ring;
+// gold dust
+const n=260,p=new Float32Array(n*3);for(let i=0;i<n;i++){const r=3+Math.random()*3.5,a=Math.random()*6.28,b=Math.random()*3.14;p[i*3]=r*Math.sin(b)*Math.cos(a)*1.6;p[i*3+1]=r*Math.cos(b);p[i*3+2]=r*Math.sin(b)*Math.sin(a)}
+const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(p,3));
+const dust=new THREE.Points(g,new THREE.PointsMaterial({color:0xe4002b,size:.045,transparent:true,opacity:.8,blending:THREE.AdditiveBlending,depthWrite:false}));S.add(dust);
+let mx=0,my=0,sy=0;addEventListener('pointermove',e=>{mx=e.clientX/innerWidth*2-1;my=e.clientY/innerHeight*2-1});addEventListener('scroll',()=>sy=scrollY/innerHeight);
+function size(){const w=host.clientWidth,h=host.clientHeight;R.setSize(w,h,false);C.aspect=w/h;C.updateProjectionMatrix();rig.scale.setScalar(Math.min(.72,C.aspect*6.88*.5/8.6));}
+size();addEventListener('resize',size);
+const clk=new THREE.Clock();let vis=true;new IntersectionObserver(e=>vis=e[0].isIntersecting).observe(host);
+(function loop(){requestAnimationFrame(loop);if(!vis)return;const t=clk.getElapsedTime();
+rig.rotation.y+=((-.5+mx*.5+sy*2+Math.sin(t*.4)*.25)-rig.rotation.y)*.06;
+rig.rotation.x+=((.28+my*.25)-rig.rotation.x)*.06;rig.rotation.z=.12+Math.sin(t*.5)*.04;
+rig.position.y=Math.sin(t*.9)*.18-sy*1.5;gold.rotation.x=t*.3;gold.rotation.y=t*.2;dust.rotation.y=t*.03;ring2.rotation.z=t*.25;beans.rotation.y=t*.12;beans.children.forEach((b,i)=>{b.rotation.x+=.01+i*.0004});R.render(S,C)})();
+})();
+</script>
+<script>
+document.querySelectorAll('table.dt').forEach(tb=>{
+ const pretty=s=>s.replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());
+ const ths=[...tb.tHead.rows[0].cells];ths.forEach(h=>h.textContent=pretty(h.textContent.trim()));
+ const rows=[...tb.tBodies[0].rows];
+ ths.forEach((h,i)=>{const nums=rows.every(r=>/^-?[\d,.]+%?$/.test(r.cells[i].textContent.trim()));
+  if(nums){h.classList.add('num');rows.forEach(r=>r.cells[i].classList.add('num'))}
+  else if(i==0&&/^\d+$/.test(rows[0].cells[0].textContent.trim()))rows.forEach(r=>r.cells[0].classList.add('code'));
+  if(/week|transfer/i.test(h.textContent))rows.forEach(r=>{const v=parseFloat(r.cells[i].textContent.replace(/,/g,''));if(/week/i.test(h.textContent)&&v<1)r.cells[i].classList.add('hot')});
+  h.title='Click to sort';h.onclick=()=>{const d=h.classList.contains('asc')?-1:1;ths.forEach(x=>x.classList.remove('asc','desc'));h.classList.add(d>0?'asc':'desc');
+   const val=r=>{const s=r.cells[i].textContent.trim().replace(/,/g,'');return nums?parseFloat(s):s.toLowerCase()};
+   rows.sort((a,b)=>(val(a)>val(b)?1:-1)*d).forEach(r=>tb.tBodies[0].appendChild(r))}});
+ const w=document.createElement('div');w.className='tw';tb.parentNode.insertBefore(w,tb);w.appendChild(tb);
+ const tl=document.createElement('div');tl.className='tools';tl.innerHTML='<input placeholder="Search material or description..."><small>'+rows.length+' rows - click a column to sort</small>';
+ w.parentNode.insertBefore(tl,w);const inp=tl.firstChild;
+ inp.oninput=()=>{const q=inp.value.toLowerCase();let n=0;rows.forEach(r=>{const ok=r.textContent.toLowerCase().includes(q);r.style.display=ok?'':'none';n+=ok});tl.lastChild.textContent=n+' of '+rows.length+' rows - click a column to sort'}});
+</script>
+<script>
+document.querySelectorAll('.kpi-val').forEach(el=>{const m=el.textContent.match(/^(\D*)([\d,]+)(\D*)$/);if(!m)return;const end=+m[2].replace(/,/g,''),pre=m[1],suf=m[3];
+ new IntersectionObserver((e,o)=>{if(!e[0].isIntersecting)return;o.disconnect();const s=performance.now();
+ (function f(n){const k=Math.min(1,(n-s)/1400),v=Math.round(end*(1-Math.pow(1-k,3)));el.textContent=pre+v.toLocaleString('en-US')+suf;if(k<1)requestAnimationFrame(f)})(s)}).observe(el)});
+</script>
+<script id="dash-data" type="application/json">{"asof":"2026-11-17","slow_days":60,"transfer_days":3,"default_kpp":1000,"kpi":{"materials":106,"total_kg":5173477,"value":32499495,"rkg":6.2819,"availability":44,"critical":3,"overstocked":50,"transfer":3314},"quality":{"critical":3,"low":15,"adequate":38,"overstocked":50},"status_value":{"adequate":{"kg":864317,"value":6063049},"overstocked":{"kg":4237929,"value":26035496},"low":{"kg":68992,"value":351065},"critical":{"kg":2238,"value":49884}},"capital":{"overstock":{"n":50,"kg":4237929,"value":26035496},"idle":{"n":52,"kg":752105,"value":7114314},"priced_pct":1.0},"top_stock":[{"c":"2526","kg":1153138.8,"v":8417913},{"c":"2630","kg":788602.2,"v":1025183},{"c":"90010342","kg":205288.9,"v":468059},{"c":"2260","kg":180283.2,"v":3785947},{"c":"3161","kg":166360.2,"v":2828123},{"c":"90010207","kg":162890.4,"v":317636},{"c":"80010464","kg":138720.0,"v":246922},{"c":"2411","kg":128290.0,"v":2052640},{"c":"70011723","kg":105588.2,"v":260803},{"c":"2149","kg":105471.1,"v":168754}],"top_cons":[{"c":"2526","kg":346627.7},{"c":"3161","kg":328333.7},{"c":"2630","kg":237193.6},{"c":"2149","kg":220251.3},{"c":"2578","kg":124639.8},{"c":"70011750","kg":108097.8},{"c":"80010278","kg":106434.4},{"c":"1927","kg":91611.7},{"c":"2260","kg":64580.7},{"c":"3075","kg":56670.6}],"demand_rank":{"2526":1,"3161":2,"2630":3,"2149":4,"2578":5,"70011750":6,"80010278":7,"1927":8,"2260":9,"3075":10},"critical":[{"c":"70011538","d":"Film Shrink Dark Block 2.1 kg","kg":748},{"c":"2062","d":"Stevia Extract","kg":1190},{"c":"70010191","d":"Film Barrier Dark Chips 2.5 kg","kg":300}],"transfers":[{"c":"3034","d":"Sunflower Seeds","type_label":"Demand + Safety","demand":3891,"safety":8000,"strategic":0,"need":11891,"picked":11891,"short":0,"kp":1000.0,"pallets":12,"load":12000,"picks":[{"batch":"1780022","sloc":"3001","qty":2241,"available":2241,"exp":null,"src_name":"North Hub"},{"batch":"1794463","sloc":"3001","qty":6630,"available":6630,"exp":null,"src_name":"North Hub"},{"batch":"1707640","sloc":"3002","qty":601,"available":601,"exp":null,"src_name":"East Hub"},{"batch":"1760602","sloc":"3002","qty":2419,"available":5313,"exp":null,"src_name":"East Hub"}],"ideal":"3001","ideal_name":"North Hub","ideal_qty":8871,"c3":3891,"dc":0,"ext":14785,"other":0,"cons":25708,"weeks":5.5900111533299315,"dc_weeks":0.0},{"c":"1141","d":"Refined Sugar Coarse","type_label":"Demand + Safety","demand":2001,"safety":5350,"strategic":0,"need":7351,"picked":415,"short":6936,"kp":1070.0,"pallets":1,"load":1070,"picks":[{"batch":"1744754","sloc":"3001","qty":415,"available":415,"exp":null,"src_name":"North Hub"}],"ideal":"3001","ideal_name":"North Hub","ideal_qty":415,"c3":4141,"dc":2140,"ext":415,"other":306,"cons":26458,"weeks":1.0726797312115162,"dc_weeks":0.80227926636114},{"c":"70011538","d":"Film Shrink Dark Block 2.1 kg","type_label":"Demand","demand":689,"safety":0,"strategic":0,"need":689,"picked":92,"short":598,"kp":655.9,"pallets":1,"load":656,"picks":[{"batch":"1713016","sloc":"3001","qty":67,"available":67,"exp":null,"src_name":"North Hub"},{"batch":"1756993","sloc":"3001","qty":25,"available":25,"exp":null,"src_name":"North Hub"}],"ideal":"3001","ideal_name":"North Hub","ideal_qty":92,"c3":1345,"dc":656,"ext":92,"other":0,"cons":23152,"weeks":0.4063098683406024,"dc_weeks":0.3564722346771016},{"c":"2062","d":"Stevia Extract","type_label":"Demand","demand":376,"safety":0,"strategic":0,"need":376,"picked":154,"short":222,"kp":518.2,"pallets":1,"load":518,"picks":[{"batch":"1707756","sloc":"3001","qty":75,"available":75,"exp":null,"src_name":"North Hub"},{"batch":"1776585","sloc":"3001","qty":12,"available":12,"exp":null,"src_name":"North Hub"},{"batch":"1797555","sloc":"3002","qty":67,"available":67,"exp":null,"src_name":"East Hub"}],"ideal":"3001","ideal_name":"North Hub","ideal_qty":87,"c3":1413,"dc":1036,"ext":154,"other":0,"cons":35776,"weeks":0.4221668631814113,"dc_weeks":0.36755644996852815},{"c":"90010287","d":"Silica Gel Sachet","type_label":"Demand","demand":144,"safety":0,"strategic":0,"need":144,"picked":144,"short":0,"kp":1000.0,"pallets":1,"load":1000,"picks":[{"batch":"1709628","sloc":"3001","qty":144,"available":552,"exp":null,"src_name":"North Hub"}],"ideal":"3001","ideal_name":"North Hub","ideal_qty":144,"c3":641,"dc":497,"ext":834,"other":0,"cons":10171,"weeks":1.5127272727272725,"dc_weeks":0.5652272727272727},{"c":"70010191","d":"Film Barrier Dark Chips 2.5 kg","type_label":"Demand","demand":105,"safety":0,"strategic":0,"need":105,"picked":86,"short":18,"kp":1000.0,"pallets":1,"load":1000,"picks":[{"batch":"1735547","sloc":"3002","qty":15,"available":15,"exp":null,"src_name":"East Hub"},{"batch":"1746597","sloc":"3002","qty":17,"available":17,"exp":null,"src_name":"East Hub"},{"batch":"1748115","sloc":"3002","qty":33,"available":33,"exp":null,"src_name":"East Hub"},{"batch":"1702438","sloc":"3001","qty":21,"available":21,"exp":null,"src_name":"North Hub"}],"ideal":"3002","ideal_name":"East Hub","ideal_qty":66,"c3":318,"dc":214,"ext":86,"other":0,"cons":5620,"weeks":0.6520675976742922,"dc_weeks":0.46405477367820464},{"c":"2578","d":"Peanut Paste","type_label":"Safety + Strategic","demand":0,"safety":861,"strategic":18765,"need":19626,"picked":19626,"short":0,"kp":781.9,"pallets":26,"load":20328,"picks":[{"batch":"1721181","sloc":"3002","qty":19626,"available":46429,"exp":null,"src_name":"East Hub"}],"ideal":"3002","ideal_name":"East Hub","ideal_qty":19626,"c3":17280,"dc":20328,"ext":48942,"other":0,"cons":124640,"weeks":5.6010107135637766,"dc_weeks":1.6436951687891654},{"c":"2980","d":"Chilli Flakes","type_label":"Safety","demand":0,"safety":5037,"strategic":0,"need":5037,"picked":947,"short":4089,"kp":937.5,"pallets":2,"load":1875,"picks":[{"batch":"1798838","sloc":"3001","qty":947,"available":947,"exp":null,"src_name":"North Hub"}],"ideal":"3001","ideal_name":"North Hub","ideal_qty":947,"c3":1286,"dc":3750,"ext":947,"other":0,"cons":8159,"weeks":5.69433584871352,"dc_weeks":4.545989029305694},{"c":"3100","d":"Quinoa Puffs","type_label":"Safety","demand":0,"safety":886,"strategic":0,"need":886,"picked":886,"short":0,"kp":770.9,"pallets":2,"load":1542,"picks":[{"batch":"1733714","sloc":"3002","qty":125,"available":125,"exp":null,"src_name":"East Hub"},{"batch":"1738779","sloc":"3002","qty":761,"available":1646,"exp":null,"src_name":"East Hub"}],"ideal":"3002","ideal_name":"East Hub","ideal_qty":886,"c3":1657,"dc":2313,"ext":1988,"other":0,"cons":36687,"weeks":1.4146265244529241,"dc_weeks":0.7607832172432794},{"c":"2888","d":"Ginger Pieces Candied","type_label":"Safety","demand":0,"safety":426,"strategic":0,"need":426,"picked":426,"short":0,"kp":1083.7,"pallets":1,"load":1084,"picks":[{"batch":"1742439","sloc":"3001","qty":426,"available":1842,"exp":null,"src_name":"North Hub"}],"ideal":"3001","ideal_name":"North Hub","ideal_qty":426,"c3":4761,"dc":6502,"ext":7101,"other":0,"cons":31369,"weeks":4.363432237369687,"dc_weeks":2.085645549318364}],"transfer_plan":{"total_pallets":48,"total_load":41074,"demand_kg":7206,"safety_kg":20560,"strategic_kg":18765,"base_pallets":24,"strategic_pallets":24,"free_trips":2,"normal_capacity":24,"extra_capacity":28,"free_capacity":48,"extra_trips":0,"waves":[{"key":"morning","name":"Morning","paid":false,"capacity":24,"pallets":24,"kg":21717,"items":[{"c":"3034","d":"Sunflower Seeds","src":"3001","src_name":"North Hub","srcs":["3001","3002"],"src_label":"North Hub (3001) + East Hub (3002)","type_label":"Demand + Safety","pallets":12,"kg":12000,"picks":[{"batch":"1780022","sloc":"3001","qty":2241,"available":2241,"exp":null,"src_name":"North Hub"},{"batch":"1794463","sloc":"3001","qty":6630,"available":6630,"exp":null,"src_name":"North Hub"},{"batch":"1707640","sloc":"3002","qty":601,"available":601,"exp":null,"src_name":"East Hub"},{"batch":"1760602","sloc":"3002","qty":2419,"available":5313,"exp":null,"src_name":"East Hub"}]},{"c":"1141","d":"Refined Sugar Coarse","src":"3001","src_name":"North Hub","srcs":["3001"],"src_label":"North Hub (3001)","type_label":"Demand + Safety","pallets":1,"kg":1070,"picks":[{"batch":"1744754","sloc":"3001","qty":415,"available":415,"exp":null,"src_name":"North Hub"}]},{"c":"70011538","d":"Film Shrink Dark Block 2.1 kg","src":"3001","src_name":"North Hub","srcs":["3001"],"src_label":"North Hub (3001)","type_label":"Demand","pallets":1,"kg":656,"picks":[{"batch":"1713016","sloc":"3001","qty":67,"available":67,"exp":null,"src_name":"North Hub"},{"batch":"1756993","sloc":"3001","qty":25,"available":25,"exp":null,"src_name":"North Hub"}]},{"c":"2062","d":"Stevia Extract","src":"3001","src_name":"North Hub","srcs":["3001","3002"],"src_label":"North Hub (3001) + East Hub (3002)","type_label":"Demand","pallets":1,"kg":518,"picks":[{"batch":"1707756","sloc":"3001","qty":75,"available":75,"exp":null,"src_name":"North Hub"},{"batch":"1776585","sloc":"3001","qty":12,"available":12,"exp":null,"src_name":"North Hub"},{"batch":"1797555","sloc":"3002","qty":67,"available":67,"exp":null,"src_name":"East Hub"}]},{"c":"90010287","d":"Silica Gel Sachet","src":"3001","src_name":"North Hub","srcs":["3001"],"src_label":"North Hub (3001)","type_label":"Demand","pallets":1,"kg":1000,"picks":[{"batch":"1709628","sloc":"3001","qty":144,"available":552,"exp":null,"src_name":"North Hub"}]},{"c":"70010191","d":"Film Barrier Dark Chips 2.5 kg","src":"3002","src_name":"East Hub","srcs":["3002","3001"],"src_label":"East Hub (3002) + North Hub (3001)","type_label":"Demand","pallets":1,"kg":1000,"picks":[{"batch":"1735547","sloc":"3002","qty":15,"available":15,"exp":null,"src_name":"East Hub"},{"batch":"1746597","sloc":"3002","qty":17,"available":17,"exp":null,"src_name":"East Hub"},{"batch":"1748115","sloc":"3002","qty":33,"available":33,"exp":null,"src_name":"East Hub"},{"batch":"1702438","sloc":"3001","qty":21,"available":21,"exp":null,"src_name":"North Hub"}]},{"c":"2578","d":"Peanut Paste","src":"3002","src_name":"East Hub","srcs":["3002"],"src_label":"East Hub (3002)","type_label":"Safety + Strategic","pallets":7,"kg":5473,"picks":[{"batch":"1721181","sloc":"3002","qty":19626,"available":46429,"exp":null,"src_name":"East Hub"}]}]},{"key":"afternoon","name":"Afternoon","paid":false,"capacity":24,"pallets":24,"kg":19357,"items":[{"c":"2578","d":"Peanut Paste","src":"3002","src_name":"East Hub","srcs":["3002"],"src_label":"East Hub (3002)","type_label":"Safety + Strategic","pallets":19,"kg":14856,"picks":[{"batch":"1721181","sloc":"3002","qty":19626,"available":46429,"exp":null,"src_name":"East Hub"}]},{"c":"2980","d":"Chilli Flakes","src":"3001","src_name":"North Hub","srcs":["3001"],"src_label":"North Hub (3001)","type_label":"Safety","pallets":2,"kg":1875,"picks":[{"batch":"1798838","sloc":"3001","qty":947,"available":947,"exp":null,"src_name":"North Hub"}]},{"c":"3100","d":"Quinoa Puffs","src":"3002","src_name":"East Hub","srcs":["3002"],"src_label":"East Hub (3002)","type_label":"Safety","pallets":2,"kg":1542,"picks":[{"batch":"1733714","sloc":"3002","qty":125,"available":125,"exp":null,"src_name":"East Hub"},{"batch":"1738779","sloc":"3002","qty":761,"available":1646,"exp":null,"src_name":"East Hub"}]},{"c":"2888","d":"Ginger Pieces Candied","src":"3001","src_name":"North Hub","srcs":["3001"],"src_label":"North Hub (3001)","type_label":"Safety","pallets":1,"kg":1084,"picks":[{"batch":"1742439","sloc":"3001","qty":426,"available":1842,"exp":null,"src_name":"North Hub"}]}]}],"source_names":{"3001":"North Hub","3002":"East Hub"},"safety":[{"c":"2980","d":"Chilli Flakes","kp":937.5,"target_pallets":8,"target_kg":7500,"dc":3750,"demand":1286,"safety_need":5037,"gap_pallets":6,"ext":947,"status":"Bring"},{"c":"3034","d":"Sunflower Seeds","kp":1000.0,"target_pallets":8,"target_kg":8000,"dc":0,"demand":3891,"safety_need":8000,"gap_pallets":9,"ext":14785,"status":"Bring"},{"c":"1141","d":"Refined Sugar Coarse","kp":1070.0,"target_pallets":5,"target_kg":5350,"dc":2140,"demand":4141,"safety_need":5350,"gap_pallets":5,"ext":415,"status":"Bring"},{"c":"2578","d":"Peanut Paste","kp":781.9,"target_pallets":5,"target_kg":3909,"dc":20328,"demand":17280,"safety_need":861,"gap_pallets":2,"ext":48942,"status":"Bring"},{"c":"2888","d":"Ginger Pieces Candied","kp":1083.7,"target_pallets":2,"target_kg":2167,"dc":6502,"demand":4761,"safety_need":426,"gap_pallets":1,"ext":7101,"status":"Bring"},{"c":"1567","d":"Sunflower Lecithin","kp":1427.6,"target_pallets":2,"target_kg":2855,"dc":5710,"demand":1943,"safety_need":0,"gap_pallets":0,"ext":11957,"status":"OK"},{"c":"2802","d":"Matcha Powder","kp":1469.2,"target_pallets":2,"target_kg":2938,"dc":11754,"demand":962,"safety_need":0,"gap_pallets":0,"ext":2917,"status":"OK"},{"c":"3100","d":"Quinoa Puffs","kp":770.9,"target_pallets":2,"target_kg":1542,"dc":2313,"demand":1657,"safety_need":886,"gap_pallets":2,"ext":1988,"status":"Bring"}],"risks":[{"c":"1141","d":"Refined Sugar Coarse","type_label":"Demand + Safety","demand":2001,"safety":5350,"strategic":0,"need":7351,"picked":415,"short":6936,"kp":1070.0,"pallets":1,"load":1070,"picks":[{"batch":"1744754","sloc":"3001","qty":415,"available":415,"exp":null,"src_name":"North Hub"}],"ideal":"3001","ideal_name":"North Hub","ideal_qty":415,"c3":4141,"dc":2140,"ext":415,"other":306,"cons":26458,"weeks":1.0726797312115162,"dc_weeks":0.80227926636114,"reason":"External stock short"},{"c":"2980","d":"Chilli Flakes","type_label":"Safety","demand":0,"safety":5037,"strategic":0,"need":5037,"picked":947,"short":4089,"kp":937.5,"pallets":2,"load":1875,"picks":[{"batch":"1798838","sloc":"3001","qty":947,"available":947,"exp":null,"src_name":"North Hub"}],"ideal":"3001","ideal_name":"North Hub","ideal_qty":947,"c3":1286,"dc":3750,"ext":947,"other":0,"cons":8159,"weeks":5.69433584871352,"dc_weeks":4.545989029305694,"reason":"External stock short"},{"c":"70011538","d":"Film Shrink Dark Block 2.1 kg","type_label":"Demand","demand":689,"safety":0,"strategic":0,"need":689,"picked":92,"short":598,"kp":655.9,"pallets":1,"load":656,"picks":[{"batch":"1713016","sloc":"3001","qty":67,"available":67,"exp":null,"src_name":"North Hub"},{"batch":"1756993","sloc":"3001","qty":25,"available":25,"exp":null,"src_name":"North Hub"}],"ideal":"3001","ideal_name":"North Hub","ideal_qty":92,"c3":1345,"dc":656,"ext":92,"other":0,"cons":23152,"weeks":0.4063098683406024,"dc_weeks":0.3564722346771016,"reason":"External stock short"},{"c":"70010836","d":"Film Mono PE Dark Bar 1.0 kg","type_label":"Demand","demand":336,"safety":0,"strategic":0,"need":336,"picked":0,"short":336,"kp":1000.0,"pallets":0,"load":0,"picks":[],"ideal":null,"ideal_name":null,"ideal_qty":0,"c3":2599,"dc":2263,"ext":0,"other":0,"cons":19090,"weeks":1.1559494770181733,"dc_weeks":1.1559494770181733,"reason":"No hub stock"},{"c":"2062","d":"Stevia Extract","type_label":"Demand","demand":376,"safety":0,"strategic":0,"need":376,"picked":154,"short":222,"kp":518.2,"pallets":1,"load":518,"picks":[{"batch":"1707756","sloc":"3001","qty":75,"available":75,"exp":null,"src_name":"North Hub"},{"batch":"1776585","sloc":"3001","qty":12,"available":12,"exp":null,"src_name":"North Hub"},{"batch":"1797555","sloc":"3002","qty":67,"available":67,"exp":null,"src_name":"East Hub"}],"ideal":"3001","ideal_name":"North Hub","ideal_qty":87,"c3":1413,"dc":1036,"ext":154,"other":0,"cons":35776,"weeks":0.4221668631814113,"dc_weeks":0.36755644996852815,"reason":"External stock short"},{"c":"2449","d":"Citric Acid Anhydrous","type_label":"Demand","demand":222,"safety":0,"strategic":0,"need":222,"picked":0,"short":222,"kp":1000.0,"pallets":0,"load":0,"picks":[],"ideal":null,"ideal_name":null,"ideal_qty":0,"c3":1453,"dc":1231,"ext":0,"other":3694,"cons":8900,"weeks":5.5653991750946386,"dc_weeks":1.3913780439572856,"reason":"Stock only outside the hubs"},{"c":"70010191","d":"Film Barrier Dark Chips 2.5 kg","type_label":"Demand","demand":105,"safety":0,"strategic":0,"need":105,"picked":86,"short":18,"kp":1000.0,"pallets":1,"load":1000,"picks":[{"batch":"1735547","sloc":"3002","qty":15,"available":15,"exp":null,"src_name":"East Hub"},{"batch":"1746597","sloc":"3002","qty":17,"available":17,"exp":null,"src_name":"East Hub"},{"batch":"1748115","sloc":"3002","qty":33,"available":33,"exp":null,"src_name":"East Hub"},{"batch":"1702438","sloc":"3001","qty":21,"available":21,"exp":null,"src_name":"North Hub"}],"ideal":"3002","ideal_name":"East Hub","ideal_qty":66,"c3":318,"dc":214,"ext":86,"other":0,"cons":5620,"weeks":0.6520675976742922,"dc_weeks":0.46405477367820464,"reason":"External stock short"}],"risk_count":7},"transfers_total":3314,"slots":{"ded":[["1927",18,9],["1778",13,7],["1524",8,9],["1567",6,4],["3100",4,3],["1434",4,3],["2062",3,2],["2163",21,11],["1346",16,13],["1114",19,13],["70010971",6,3],["2091",12,14],["2888",11,6],["70011056",1,3],["2899",8,5],["2137",9,9],["1141",1,2],["70011805",6,5],["80010539",19,11],["70011512",4,2],["70011538",2,1],["2802",15,8],["1467",6,4],["2295",4,3],["2980",6,4],["3034",2,0],["2578",54,26]],"pool":[["Drive-in Bulk",118,60],["Drive-in Cases",96,46],["Roller Lanes",64,39],["Racks",150,75]],"blocked":[24,11],"trend":[["9 Oct",64.82,71.58],["10 Oct",66.84,71.06],["11 Oct",67.83,73.58],["12 Oct",65.47,74.48],["13 Oct",66.23,75.67],["14 Oct",66.55,79.03],["15 Oct",68.76,80.35],["16 Oct",67.32,80.77],["17 Oct",67.27,82.36],["18 Oct",66.03,83.52],["19 Oct",65.21,83.51],["20 Oct",63.3,81.24],["21 Oct",64.14,81.28],["22 Oct",62.35,79.89],["23 Oct",60.47,82.34],["24 Oct",61.1,84.32],["25 Oct",61.34,82.25],["26 Oct",59.71,83.3],["27 Oct",59.87,84.03],["28 Oct",61.94,83.52],["29 Oct",60.68,84.2],["30 Oct",61.27,81.69],["31 Oct",61.48,80.66],["1 Nov",62.69,82.84],["2 Nov",62.7,85.44],["3 Nov",62.22,82.66],["4 Nov",60.33,83.1],["5 Nov",58.52,81.48],["6 Nov",59.09,82.47],["7 Nov",56.86,81.47],["8 Nov",59.25,78.75],["9 Nov",57.7,78.92],["10 Nov",58.48,77.11],["11 Nov",60.43,76.62],["12 Nov",60.05,74.8],["13 Nov",61.15,76.9],["14 Nov",62.33,77.69],["15 Nov",60.51,75.31],["16 Nov",59.62,77.46],["17 Nov",51.4,64.75]],"rep":{"shared":51.4,"ded":64.75},"names":{"1927":"Shea Stearin","1778":"Almond Paste","1524":"Soy Lecithin Fluid","1567":"Sunflower Lecithin","3100":"Quinoa Puffs","1434":"Cocoa Powder Red","2062":"Stevia Extract","2163":"Rice Crisps","1346":"Cocoa Butter Deodorized","1114":"Refined Sugar Fine","70010971":"Film Mono Pe White Chips 2.5","2091":"Malt Extract Dry","2888":"Ginger Pieces Candied","70011056":"Film Mono Pe White Bar 1.0 K","2899":"Cinnamon Ground","2137":"Coconut Milk Powder","1141":"Refined Sugar Coarse","70011805":"Film Shrink White Chips 2.5","80010539":"Carton Shipper 40 X 30 X 25","70011512":"Film Laminate White Bar 1.0","70011538":"Film Shrink Dark Block 2.1 K","2802":"Matcha Powder","1467":"Cocoa Liquor Block","2295":"Orange Peel Candied","2980":"Chilli Flakes","3034":"Sunflower Seeds","2578":"Peanut Paste"}}}</script>
+<script>
+(function(){
+const D=JSON.parse(document.getElementById('dash-data').textContent);
+const $=id=>document.getElementById(id);
+const n0=v=>Math.round(v).toLocaleString('en-US');
+const mR=v=>'$'+(v/1e6).toFixed(1)+'M';
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+const K=D.kpi,TOTAL_KG=K.total_kg,TOTAL_R=K.value,RKG=K.rkg;
+const COL={crit:'#ff4d5e',low:'#f5a04a',ok:'#4fcf8f',over:'#6aa8ff'};
+if(matchMedia('(prefers-reduced-motion:reduce)').matches)Chart.defaults.animation.duration=0;
+const tipV={...tip,displayColors:false,padding:14,titleFont:{family:'Inter',weight:'700',size:13},bodyFont:{family:'Inter',size:12},bodySpacing:6};
+const grid={color:'rgba(255,255,255,.06)',drawTicks:false};
+const barGrad=(c,top,bot)=>{const a=c.chart.chartArea;if(!a)return top;const g=c.chart.ctx.createLinearGradient(0,a.bottom,0,a.top);g.addColorStop(0,bot);g.addColorStop(1,top);return g};
+const nm=c=>(D.slots.names&&D.slots.names[c])||'';
+
+/* ---------- 1. quality distribution ---------- */
+const QN=D.quality,QT=QN.critical+QN.low+QN.adequate+QN.overstocked||1;
+const Q=[['Critical','Under 1 week',QN.critical,COL.crit],['Low','1 to 4 weeks',QN.low,COL.low],['Adequate','4 to 12 weeks',QN.adequate,COL.ok],['Overstocked','Over 12 weeks',QN.overstocked,COL.over]];
+const pct=v=>Math.round(v/QT*100);
+$('qLead').innerHTML=`<b>${pct(QN.adequate)}%</b> healthy, <b>${pct(QN.overstocked)}%</b> overstocked.`;
+$('qSub').textContent=QT+' active materials';
+$('qList').innerHTML=Q.map(q=>`<div class="q-row"><i style="background:${q[3]}"></i><b>${q[0]}</b><span>${q[2]}</span><small>${q[1]} &middot; ${pct(q[2])}%</small><div class="q-bar"><u style="width:${q[2]/QT*100}%;background:${q[3]}"></u></div></div>`).join('');
+lazy('chartSaturation',()=>new Chart($('chartSaturation'),{type:'doughnut',plugins:[center],
+ data:{labels:Q.map(q=>q[0]),datasets:[{data:Q.map(q=>q[2]),backgroundColor:Q.map(q=>q[3]),borderWidth:0,spacing:3,borderRadius:3,hoverOffset:8}]},
+ options:{responsive:true,maintainAspectRatio:false,cutout:'74%',plugins:{legend:{display:false},tooltip:{...tipV,callbacks:{title:c=>c[0].label,label:c=>c.parsed+' materials ('+pct(c.parsed)+'%)'}}}}}));
+
+/* ---------- 2. capital at risk ---------- */
+const CP=D.capital,real=CP.priced_pct>=.5;
+$('capLead').innerHTML=`<b>${CP.overstock.n}</b> overstocked materials hold <b>${mR(CP.overstock.value)}</b> (${(CP.overstock.value/TOTAL_R*100).toFixed(0)}% of value).`;
+const rows=[['Overstocked ('+CP.overstock.n+')',n0(CP.overstock.kg)+' kg',CP.overstock.value,COL.over],['Idle over '+D.slow_days+' days ('+CP.idle.n+')',n0(CP.idle.kg)+' kg',CP.idle.value,COL.low],['Total stock value',n0(TOTAL_KG)+' kg',TOTAL_R,'#e9e4dc']];
+let seg='';
+if(D.status_value){const o=[['critical',COL.crit,'Critical'],['low',COL.low,'Low'],['adequate',COL.ok,'Adequate'],['overstocked',COL.over,'Overstocked']];
+ seg=`<div class="sec-sub" style="margin:0">Value by quality class</div><div class="split" style="height:14px;min-width:0">${o.map(s=>`<u style="width:${D.status_value[s[0]].value/TOTAL_R*100}%;background:${s[1]}" title="${s[2]}: ${mR(D.status_value[s[0]].value)}"></u>`).join('')}</div><div class="split-l" style="flex-wrap:wrap;margin-bottom:6px">${o.map(s=>`<span><i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${s[1]};margin-right:5px"></i>${s[2]} ${mR(D.status_value[s[0]].value)}</span>`).join('')}</div>`}
+$('capRows').innerHTML=seg+rows.map(r=>`<div class="cap-row"><b>${r[0]}</b><small>${r[1]}</small><strong style="color:${r[3]}">${mR(r[2])}</strong><div class="cap-track"><u style="width:${Math.min(100,r[2]/TOTAL_R*100)}%;background:${r[3]}"></u></div></div>`).join('');
+$('capNote').textContent=real?'Priced per material (externals sheet).':'Indicative: valued at average $/kg.';
+$('capTag').textContent=real?'material prices':'avg $/kg';
+
+/* ---------- 3. Pareto ---------- */
+const ref80={id:'ref80',afterDatasetsDraw(c){const y=c.scales.y1,a=c.chartArea,x=c.ctx,py=y.getPixelForValue(80);x.save();x.setLineDash([5,5]);x.strokeStyle='rgba(255,255,255,.35)';x.beginPath();x.moveTo(a.left,py);x.lineTo(a.right,py);x.stroke();x.setLineDash([]);x.fillStyle='#a9a39a';x.font='600 11px Inter';x.textAlign='right';x.fillText('80%',a.right,py-6);x.restore()}};
+function pareto(id,labels,data,base,unitLbl,cumLbl,extra){
+ let run=0;const cum=data.map(v=>(run+=v)/base*100);
+ new Chart($(id),{type:'bar',data:{labels,datasets:[
+  {type:'bar',label:unitLbl,data,yAxisID:'y',order:2,backgroundColor:c=>barGrad(c,'#ff3a55','rgba(228,0,43,.22)'),hoverBackgroundColor:'#ff8a98',borderRadius:{topLeft:5,topRight:5},barPercentage:.72},
+  {type:'line',label:cumLbl,data:cum,yAxisID:'y1',order:1,borderColor:'#fff',backgroundColor:'#fff',borderWidth:2,tension:.3,pointRadius:4,pointHoverRadius:6,pointBorderColor:'#14090b',pointBorderWidth:2}]},
+  plugins:[ref80],
+  options:{responsive:true,maintainAspectRatio:false,animations:{backgroundColor:false},interaction:{mode:'index',intersect:false},layout:{padding:{top:6}},
+   plugins:{legend:{display:true,align:'end',labels:{usePointStyle:true,boxWidth:8,color:'#cfc8be',font:{size:12}}},
+    tooltip:{...tipV,callbacks:{title:c=>'Material '+c[0].label,label:c=>c.datasetIndex?c.parsed.y.toFixed(1)+'% '+cumLbl.toLowerCase():n0(c.parsed.y)+' kg ('+(c.parsed.y/base*100).toFixed(1)+'%)',afterBody:c=>extra?extra(c[0].dataIndex,c[0].parsed.y):''}}},
+   scales:{x:{grid:{display:false},border:{display:false},ticks:{color:'#fff',font:{family:'ui-monospace,Menlo,monospace',size:11}}},
+    y:{grid,border:{display:false},ticks:{callback:fmt}},
+    y1:{position:'right',min:0,max:100,grid:{display:false},border:{display:false},ticks:{callback:v=>v+'%',color:'#cfc8be'}}}}})}
+const ST=D.top_stock,DM=D.top_cons;$('topSub').textContent='top '+ST.length+' by volume, % of '+(TOTAL_KG/1e6).toFixed(2)+'M kg';
+lazy('chartTopStock',()=>pareto('chartTopStock',ST.map(x=>x.c),ST.map(x=>x.kg),TOTAL_KG,'Stock (kg)','Cumulative %',(i,v)=>(real?'Value: ':'Indicative value: ')+mR(ST[i].v)));
+$('demSub').textContent='top '+DM.length;const dmT=DM.reduce((a,x)=>a+x.kg,0)||1;
+lazy('chartTopConsumption',()=>pareto('chartTopConsumption',DM.map(x=>x.c),DM.map(x=>x.kg),dmT,'Consumption (kg)','Cumulative %'));
+
+/* ---------- 4. saturation trend ---------- */
+const T=D.slots.trend||[];
+if(!T.length){$('trendCard').style.display='none'}else{
+const dd=T.map(r=>r[2]),sh=T.map(r=>r[1]),hi=Math.max(...dd),lo=Math.min(...dd),hiI=dd.indexOf(hi),loI=dd.indexOf(lo);
+$('trendSub').textContent=T[0][0]+' to '+T[T.length-1][0];
+$('trendLead').innerHTML=`Dedicated: <b>${lo}%</b> to <b>${hi}%</b>. Shared: ${Math.round(Math.min(...sh))}&ndash;${Math.round(Math.max(...sh))}%.`;
+const band={id:'band',beforeDatasetsDraw(c){const y=c.scales.y,a=c.chartArea,x=c.ctx;x.save();
+ x.fillStyle='rgba(255,77,94,.10)';x.fillRect(a.left,y.getPixelForValue(100),a.width,y.getPixelForValue(85)-y.getPixelForValue(100));
+ x.fillStyle='rgba(106,168,255,.08)';x.fillRect(a.left,y.getPixelForValue(55),a.width,y.getPixelForValue(0)-y.getPixelForValue(55));
+ x.font='600 11px Inter';x.textAlign='left';x.fillStyle='#ff8a98';x.fillText('Tight (over 85%)',a.left+8,y.getPixelForValue(100)+16);
+ x.fillStyle='#8fbaff';x.fillText('Under-used (under 55%)',a.left+8,y.getPixelForValue(0)-8);x.restore()}};
+const peak={id:'peak',afterDatasetsDraw(c){const m=c.getDatasetMeta(0),x=c.ctx;x.save();x.font='700 12px Inter';x.textAlign='center';
+ [[hiI,hi,-12],[loI,lo,22]].forEach(([i,v,o])=>{x.fillStyle='#fff';x.fillText(v+'%',m.data[i].x,m.data[i].y+o)});x.restore()}};
+lazy('chartTrend',()=>new Chart($('chartTrend'),{type:'line',plugins:[band,peak],
+ data:{labels:T.map(r=>r[0]),datasets:[
+  {label:'Dedicated positions',data:dd,borderColor:'#ff4d5e',borderWidth:3,tension:.35,pointRadius:c=>(c.dataIndex==hiI||c.dataIndex==loI)?6:0,pointHoverRadius:6,pointBackgroundColor:'#ff4d5e',pointBorderColor:'#14090b',pointBorderWidth:2,fill:true,backgroundColor:c=>barGrad(c,'rgba(255,77,94,.28)','rgba(255,77,94,0)')},
+  {label:'Shared positions',data:sh,borderColor:'#e9e4dc',borderWidth:2,borderDash:[6,4],tension:.35,pointRadius:0,pointHoverRadius:5}]},
+ options:{responsive:true,maintainAspectRatio:false,animations:{backgroundColor:false},interaction:{mode:'index',intersect:false},
+  plugins:{legend:{align:'end',labels:{usePointStyle:true,boxWidth:8,color:'#cfc8be',font:{size:12}}},tooltip:{...tipV,callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toFixed(1)+'%'}}},
+  scales:{x:{grid:{display:false},border:{display:false},ticks:{maxTicksLimit:9,color:'#a9a39a'}},y:{min:0,max:100,grid,border:{display:false},ticks:{callback:v=>v+'%',stepSize:25}}}}}));
+}
+
+/* ---------- 5. warehouse positions ---------- */
+const DED=(D.slots.ded||[]).map(r=>({c:r[0],t:r[1],o:r[2],f:r[1]-r[2]}));
+const POOL=D.slots.pool||[];
+const open=DED.reduce((a,d)=>a+Math.max(0,d.f),0),over=DED.reduce((a,d)=>a+Math.max(0,-d.f),0);
+const poolFree=POOL.reduce((a,p)=>a+p[1]-p[2],0),poolTot=POOL.reduce((a,p)=>a+p[1],0);
+const SC=1.5;
+const row=(name,sub,t,o,right,cls)=>{const m=Math.min(o,t);return `<div class="slot"><div class="slot-n"><b>${esc(name)}</b><small>${esc(sub)}</small></div><div class="track" title="${o} of ${t} positions used"><div class="occ" style="width:${m/t/SC*100}%"></div>${o<t?`<div class="fr" style="left:${m/t/SC*100}%;width:${(t-o)/t/SC*100}%"></div>`:''}${o>t?`<div class="ov" style="left:${100/SC}%;width:${Math.min(50,(o-t)/t/SC*100)}%"></div>`:''}<div class="cap" style="left:${100/SC}%"></div></div><div class="slot-r ${cls}">${right}</div></div>`};
+$('slotMap').innerHTML=DED.length?[...DED].filter(d=>d.t>0).sort((a,b)=>b.f/b.t-a.f/a.t).map(d=>row(d.c,(nm(d.c)?nm(d.c)+' · ':'')+d.o+' of '+d.t,d.t,d.o,d.f>0?d.f+' open':d.f<0?(-d.f)+' over':'Full',d.f>0?'ok':d.f<0?'bad':'mu')).join(''):'<p class="note">No position data loaded. Run the script with the saturation workbook.</p>';
+$('poolMap').innerHTML=POOL.map(p=>row(p[0],p[2]+' of '+p[1]+' used',p[1],p[2],(p[1]-p[2])+' free','ok')).join('')+`<div class="pool-total"><span>Free shared positions</span><strong>${poolFree} of ${poolTot}</strong></div>`;
+if(D.slots.blocked)$('blockedNote').textContent='Blocked ('+D.slots.blocked[0]+' pos., '+D.slots.blocked[1]+' used) excluded.';
+
+/* ---------- 6. transfer plan ---------- */
+const TP=D.transfer_plan||{};
+const SRC=TP.source_names||{};
+const srcName=s=>SRC[s]||s||'—';
+const P=(D.transfers||[]).map(t=>{
+  const d=DED.find(x=>x.c==t.c);
+  const kp=t.kp||((d&&d.o>0&&t.dc>0)?t.dc/d.o:D.default_kpp);
+  const f=d?Math.max(0,d.f):0;
+  const rawSh=Math.max(0,t.need-f*kp),sh=rawSh>0.5?rawSh:0,dk=t.need-sh;
+  const pallets=t.pallets||Math.max(1,Math.ceil(t.need/kp-1e-9));
+  return {c:t.c,n:t.d,need:t.need,kp,f,dk,sh,sp:sh>0?Math.ceil(sh/kp-1e-9):0,has:!!d,cap:d?d.t*kp:0,
+    pallets,load:t.load||pallets*kp,picks:t.picks||[],ideal:t.ideal,
+    ideal_name:t.ideal_name||srcName(t.ideal),ideal_qty:t.ideal_qty||0,
+    type_label:t.type_label||'Plan',demand:t.demand||0,safety:t.safety||0,
+    strategic:t.strategic||0,short:t.short||0};
+});
+const needT=P.reduce((a,p)=>a+p.need,0),dkT=P.reduce((a,p)=>a+p.dk,0),shT=needT-dkT,spT=P.reduce((a,p)=>a+p.sp,0);
+const demandT=TP.demand_kg||P.reduce((a,p)=>a+p.demand,0);
+const safetyT=TP.safety_kg||P.reduce((a,p)=>a+p.safety,0);
+const strategicT=TP.strategic_kg||P.reduce((a,p)=>a+p.strategic,0);
+const palletT=TP.total_pallets||P.reduce((a,p)=>a+p.pallets,0);
+const loadT=TP.total_load||P.reduce((a,p)=>a+p.load,0);
+const freeCap=TP.free_capacity||((TP.free_trips||2)*(TP.normal_capacity||24));
+const extraCap=TP.extra_capacity||28;
+const extraPallets=Math.max(0,palletT-freeCap);
+const extraTrips=TP.extra_trips!==undefined?TP.extra_trips:Math.ceil(extraPallets/extraCap);
+const riskN=TP.risk_count||0;
+const typeChips=label=>(label||'Plan').split(' + ').map(x=>`<span class="chip ${x==='Demand'?'bad':x==='Safety'?'mid':'free'}">${esc(x)}</span>`).join('');
+$('trKpis').innerHTML=[
+ ['',n0(demandT),'3-day demand (kg)',P.filter(p=>p.demand>0).length+' materials'],
+ ['mid',n0(safetyT),'Safety top-up (kg)',(TP.safety||[]).filter(s=>s.safety_need>0).length+' targets gap'],
+ ['free',n0(strategicT),'Strategic fill (kg)',(TP.strategic_pallets||0)+' high-consumption pallets'],
+ ['',palletT+' / '+freeCap,'Pallets / free capacity',n0(loadT)+' kg loaded'],
+ ['ok',freeCap,'Free positions per day',(TP.free_trips||2)+' trips × '+(TP.normal_capacity||24)],
+ [extraTrips?'bad':'ok',extraTrips,'Paid extra trips',extraPallets?extraPallets+' pallets above '+freeCap+' free':'No extra trip needed'],
+ [riskN?'bad':'ok',riskN,'Rupture risks',riskN?'Source decision needed':'All covered']
+].map(k=>`<div class="kpi glass rv on ${k[0]}"><div class="kpi-val">${k[1]}</div><div class="kpi-lbl">${k[2]}</div>${k[3]?`<small>${k[3]}</small>`:''}</div>`).join('');
+const stat=p=>p.short>0?['bad','Short '+n0(p.short)+' kg']:p.sh<1?['ok','Fits dedicated']:p.dk<1?['bad',p.has?'Shared only':'No dedicated spot']:['mid','Dedicated + shared'];
+const fmtExp=s=>s?new Date(s+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'expiry n/a';
+const fefoRow=p=>{const items=(p.picks||[]).map(x=>`<span class="fefo-i"><b>${esc(x.batch||'No batch')}</b> · ${esc(x.src_name||srcName(x.sloc))} (${esc(x.sloc||'—')}) · ${fmtExp(x.exp)} · ${n0(x.qty)} kg${x.available>x.qty+.5?' of '+n0(x.available):''}</span>`).join('');return items?`<tr class="fefo"><td colspan="9"><div class="fefo-head">FEFO batches to bring in · ideal source <b>${esc(p.ideal_name||srcName(p.ideal))}</b>${p.ideal_qty?' ('+n0(p.ideal_qty)+' kg)':''}</div><div class="fefo-list">${items}</div></td></tr>`:''};
+$('planTable').innerHTML=P.length?'<thead><tr><th>Material</th><th>Type</th><th class="n">Need (kg)</th><th class="n">Kg / pallet</th><th class="n">Pallets</th><th class="n">Open dedicated</th><th>Destination split</th><th>Ideal external</th><th>Result</th></tr></thead><tbody>'+P.map(p=>{const s=stat(p),a=p.need?p.dk/p.need*100:0;return `<tr><td><span class="c">${esc(p.c)}</span><span class="d">${esc(p.n)}</span></td><td><div class="type-badges">${typeChips(p.type_label)}</div></td><td class="n">${n0(p.need)}<span class="d">D ${n0(p.demand)} · S ${n0(p.safety)} · X ${n0(p.strategic)}</span></td><td class="n">${n0(p.kp)}</td><td class="n">${p.pallets}<span class="d">${n0(p.load)} kg</span></td><td class="n">${p.f}</td><td><div class="split"><u class="a" style="width:${a}%"></u><u class="b" style="width:${100-a}%"></u></div><div class="split-l"><span>${n0(p.dk)} kg dedicated</span><span>${p.sh>0?n0(p.sh)+' kg shared ('+p.sp+' pos.)':'none shared'}</span></div></td><td>${p.ideal?`<span class="chip free">${esc(p.ideal_name)}</span><span class="d">${esc(p.ideal)}</span>`:'<span class="d">—</span>'}</td><td><span class="chip ${s[0]}">${s[1]}</span></td></tr>`+fefoRow(p)}).join('')+'</tbody>':'<tbody><tr><td>No transfer needed in the next '+D.transfer_days+' days.</td></tr></tbody>';
+const waves=(TP.waves||[]).map(w=>Object.assign({},w,{items:(w.items||[]).slice()}));
+if(!waves.some(w=>w.paid))waves.push({name:'Extra (paid)',paid:true,capacity:extraCap,pallets:0,kg:0,items:[]});
+$('wavePlan').innerHTML=waves.map(w=>{const items=(w.items||[]).map(it=>{const srcTxt=it.src_label||((it.src_name||srcName(it.src))+' ('+(it.src||'—')+')');return `<div class="wave-item"><div class="wi-top"><b>${esc(it.c)}</b><span>${it.pallets} pallet${it.pallets===1?'':'s'} · ${n0(it.kg)} kg</span></div><div class="wi-tags">${typeChips(it.type_label||'Plan')}</div><div class="wi-sub">${esc(it.d||'')} · ${esc(srcTxt)}</div></div>`}).join('');return `<div class="wave-card ${w.paid?'paid':''}"><div class="wave-head"><b>${esc(w.name)}</b><span class="chip ${w.paid?'mid':'ok'}">${w.paid?'Paid':'Free'}</span></div><div class="wave-meta">${w.pallets} of ${w.capacity} positions used · ${n0(w.kg)} kg</div>${items||'<div class="wave-empty">No pallets needed.</div>'}</div>`}).join('');
+const SF=TP.safety||[];
+const pw=n=>n===1?'pallet':'pallets';
+$('safetyTable').innerHTML=SF.length?'<thead><tr><th>Material</th><th>Safety target</th><th class="n">DC now</th><th class="n">3-day demand</th><th class="n">Safety gap</th><th>Transfer</th><th>Status</th></tr></thead><tbody>'+SF.map(s=>{const cls=s.status==='OK'?'ok':s.status==='Bring'?'mid':'bad';const now=(s.dc/(s.kp||1)).toFixed(1),tp=pw(s.target_pallets),gp=pw(s.gap_pallets);return `<tr><td><span class="c">${esc(s.c)}</span><span class="d">${esc(s.d||'')}</span></td><td>${s.target_pallets} ${tp}<span class="d">${n0(s.target_kg)} kg</span></td><td class="n">${n0(s.dc)}<span class="d">${now} ${now==='1.0'?'pallet':'pallets'}</span></td><td class="n">${n0(s.demand)}</td><td class="n">${n0(s.safety_need)}<span class="d">${s.gap_pallets} ${gp}</span></td><td>${s.safety_need>0&&s.ext>0?`${s.gap_pallets} ${gp}<span class="d">${n0(s.safety_need)} kg</span>`:'—'}</td><td><span class="chip ${cls}">${esc(s.status)}</span></td></tr>`}).join('')+'</tbody>':'<tbody><tr><td>No safety targets configured.</td></tr></tbody>';
+const RK=TP.risks||[];
+$('riskTable').innerHTML=RK.length?'<thead><tr><th>Material</th><th class="n">Plan need</th><th class="n">Hub stock</th><th class="n">Other loc.</th><th class="n">Short (hub stock)</th><th class="n">DC cover</th><th>Reason</th></tr></thead><tbody>'+RK.map(r=>`<tr><td><span class="c">${esc(r.c)}</span><span class="d">${esc(r.d||'')}</span></td><td class="n">${n0(r.need)}</td><td class="n">${n0(r.ext)}</td><td class="n">${n0(r.other||0)}</td><td class="n">${n0(r.short)}</td><td class="n">${r.dc_weeks!=null?r.dc_weeks.toFixed(1)+' w':'—'}</td><td><span class="chip bad" style="white-space:normal">${esc(r.reason)}</span></td></tr>`).join('')+'</tbody>':'<tbody><tr><td>No rupture risk from hubs stock.</td></tr></tbody>';
+const big=[...P].sort((a,b)=>b.sp-a.sp)[0],mostOpen=[...DED].sort((a,b)=>b.f-a.f)[0];
+let nt=`Plan: <b>${n0(demandT)} kg</b> demand + <b>${n0(safetyT)} kg</b> safety + <b>${n0(strategicT)} kg</b> strategic = <b>${n0(loadT)} kg</b> on ${palletT} pallets.`;
+if(extraPallets)nt+=` <b>${extraPallets} pallets</b> exceed the ${freeCap} free positions; ${extraTrips} paid extra trip(s) of ${extraCap} positions required.`;
+else nt+=` All <b>${palletT} pallets</b> fit in the two free daily trips (${freeCap} positions).`;
+if(riskN)nt+=` <b>${riskN}</b> material(s) still need a source decision (see Rupture risk).`;
+$('planNote').innerHTML=nt;
+
+/* ---------- 7. actions ---------- */
+const A=[],cr=D.critical||[];
+if(cr.length){const c=cr[0],rk=D.demand_rank&&D.demand_rank[c.c];A.push([COL.crit,'Protect '+c.c,n0(c.kg)+' kg left, under 1 week'+(rk?', #'+rk+' by demand':'')+(cr.length>1?' (+'+(cr.length-1)+' more)':'')])}
+else A.push([COL.ok,'No critical shortages','All materials have 1+ week of cover.']);
+if(spT>poolFree&&big)A.push([COL.low,'Send '+big.c+' in daily waves','Needs '+big.sp+' shared positions; '+poolFree+' free.']);
+if(open)A.push([COL.ok,'Fill open dedicated positions',open+' open, no displacement.']);
+if(CP.overstock.n)A.push([COL.over,'Pause overstocked items',mR(CP.overstock.value)+' tied up in '+CP.overstock.n+' materials.']);
+if(over){const oc=DED.filter(d=>d.f<0).map(d=>d.c);A.push([COL.crit,'Move '+over+' overflow positions back',oc.join(', ')+' occupy shared space.'])}
+$('acts').innerHTML=A.map(a=>`<li style="--c:${a[0]}"><div><b>${esc(a[1])}</b><span>${esc(a[2])}</span></div></li>`).join('');
+})();
+</script>
+</body>
+</html>
